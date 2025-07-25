@@ -101,3 +101,13 @@ if uploaded_file is not None:
 
 else:
     st.info("Please upload a CSV file to begin.")
+# ---- Footer ----
+st.markdown("""
+<hr style='border: 1px solid #ccc; margin-top: 50px;'>
+<div style='text-align: center; font-size: 14px; color: #888;'>
+    <strong>SmartStudent AI</strong> © 2025<br>
+    Project by <strong>Mohammed Hussain Kamal Ahmed Choudhary</strong><br>
+    Credits: <strong>Data Decoders</strong><br>
+    Made with ❤️ using <a href='https://streamlit.io' target='_blank'>Streamlit</a>
+</div>
+""", unsafe_allow_html=True)
