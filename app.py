@@ -1,112 +1,111 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 import seaborn as sns
 import matplotlib.pyplot as plt
+import plotly.express as px
 import base64
-import io
 
-# Load trained model
+# ------------------- PAGE CONFIG -------------------
+st.set_page_config(
+    page_title="SmartStudent AI Dashboard",
+    page_icon="📘",
+    layout="wide"
+)
+
+# ------------------- CUSTOM HEADER -------------------
+st.markdown("""
+    <div style="background: linear-gradient(to right, #4facfe, #00f2fe); padding: 20px 10px; border-radius: 10px;">
+        <h2 style="color: white; text-align: center;">📘 SmartStudent AI: Predictive Academic Dashboard</h2>
+    </div>
+""", unsafe_allow_html=True)
+
+# ------------------- SIDEBAR -------------------
+st.sidebar.title("📚 SmartStudent AI")
+page = st.sidebar.radio("Navigate", ["Upload CSV & Predict", "Visual Analysis", "About Team"])
+
+# ------------------- LOAD MODEL -------------------
 model = joblib.load("model.pkl")
 
-# Streamlit page config
-st.set_page_config(page_title="SmartStudent AI", layout="wide")
+# ------------------- UPLOAD & PREDICT -------------------
+if page == "Upload CSV & Predict":
+    st.subheader("📤 Upload Student Data (Without Final Result)")
 
-st.markdown("""
-    <style>
-    body {
-        background: linear-gradient(to right, #cce5ff, #e6f2ff);
-    }
-    .main {
-        background-color: #f0f8ff;
-        padding: 1rem;
-        border-radius: 10px;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
-st.title("📚 SmartStudent AI: Predictive Academic Dashboard")
-st.markdown("Upload your student records to predict their academic result (Pass/Fail), analyze trends, and get improvement tips.")
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
 
-# File uploader
-uploaded_file = st.file_uploader("📂 Upload CSV file (without Final Result)", type=["csv"])
+        # Prediction
+        if "Final Result" not in df.columns:
+            input_data = df.copy()
+            result = model.predict(input_data.iloc[:, 2:])
+            df["Final Result"] = result
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+            st.success("✅ Prediction complete!")
+            st.write(df)
 
-    expected_columns = ["Student_ID", "Name", "Attendance (%)", "Assignment Score", "Midterm Marks", "Final Exam Marks", "Class Participation"]
-    if not all(col in df.columns for col in expected_columns):
-        st.error("Uploaded CSV does not have the required columns.")
-    else:
-        # Convert necessary columns to numeric
-        features = ["Attendance (%)", "Assignment Score", "Midterm Marks", "Final Exam Marks", "Class Participation"]
-        df[features] = df[features].apply(pd.to_numeric, errors='coerce')
-        df = df.dropna(subset=features)
-
-        # Predict
-        predictions = model.predict(df[features])
-        df['Final Result'] = predictions
-        df['Final Result'] = df['Final Result'].map({1: "Pass", 0: "Fail"})
-
-        # Show results
-        st.subheader("📊 Prediction Results")
-        st.dataframe(df)
-
-        # Download link
-        def get_table_download_link(dataframe):
-            csv = dataframe.to_csv(index=False)
+            # Download predicted CSV
+            csv = df.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
-            return f'<a href="data:file/csv;base64,{b64}" download="predicted_results.csv">📥 Download Predicted Results CSV</a>'
+            href = f'<a href="data:file/csv;base64,{b64}" download="predicted_results.csv">📥 Download Predicted Results</a>'
+            st.markdown(href, unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Your file already contains 'Final Result' column. This is for prediction only.")
 
-        st.markdown(get_table_download_link(df), unsafe_allow_html=True)
+# ------------------- VISUAL ANALYSIS -------------------
+elif page == "Visual Analysis":
+    st.subheader("📈 Academic Performance Overview")
 
-        # Charts Section
-        st.subheader("📈 Performance Analysis")
+    uploaded_viz = st.file_uploader("Upload Full Dataset (with Final Result)", type=["csv"])
 
-        col1, col2 = st.columns(2)
+    if uploaded_viz is not None:
+        df = pd.read_csv(uploaded_viz)
 
-        with col1:
-            st.markdown("**✅ Pass vs Fail**")
-            result_counts = df['Final Result'].value_counts()
-            fig1, ax1 = plt.subplots()
-            ax1.pie(result_counts, labels=result_counts.index, autopct='%1.1f%%', startangle=90, colors=["#8fd9a8", "#ff9999"])
-            ax1.axis('equal')
-            st.pyplot(fig1)
+        if "Final Result" in df.columns:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("🎓 Total Students", len(df))
+            with col2:
+                st.metric("✅ Passed", df[df['Final Result'] == 'Pass'].shape[0])
+            with col3:
+                st.metric("❌ Failed", df[df['Final Result'] == 'Fail'].shape[0])
 
-        with col2:
-            st.markdown("**📚 Score Distribution**")
-            fig2, ax2 = plt.subplots()
-            df[features].plot(kind='hist', bins=20, alpha=0.6, ax=ax2)
+            # Plotly bar chart
+            fig = px.bar(df, x='Name', y='Final Exam Marks', color='Final Result', title='Final Exam Marks by Student')
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Seaborn heatmap
+            st.subheader("📊 Correlation Heatmap")
+            corr = df.select_dtypes(include=np.number).corr()
+            fig2, ax = plt.subplots(figsize=(10, 6))
+            sns.heatmap(corr, annot=True, cmap='coolwarm', ax=ax)
             st.pyplot(fig2)
 
-        st.markdown("**🧪 Correlation Heatmap**")
-        fig3, ax3 = plt.subplots(figsize=(8, 4))
-        corr = df[features].corr()
-        sns.heatmap(corr, annot=True, cmap="Blues", ax=ax3)
-        st.pyplot(fig3)
-
-        # Suggestions
-        st.subheader("💡 Academic Performance Tips")
-        fail_students = df[df['Final Result'] == 'Fail']
-        if not fail_students.empty:
-            st.warning(f"{len(fail_students)} students failed. Here's how to help them:")
-            st.markdown("""
-            - 📖 Encourage regular class attendance and participation.
-            - 📝 Provide assignment guidance and feedback.
-            - 📅 Offer weekly revision sessions.
-            - 💬 Conduct one-on-one performance reviews.
-            """)
         else:
-            st.success("🎉 All students passed! Great job!")
+            st.error("❌ Final Result column not found. Please upload complete data for analysis.")
 
-else:
-    st.info("Please upload a CSV file to begin.")
+# ------------------- ABOUT TEAM -------------------
+elif page == "About Team":
+    st.subheader("👨‍💻 Meet the Team")
+
+    st.markdown("""
+    <div style="padding: 20px; border-radius: 10px; background-color: #f0f8ff;">
+        <h4 style="text-align:center;">🚀 Team Data Decoders</h4>
+        <p style="text-align:center;">
+            This project is presented as part of an event at <strong>Vidyalankar College</strong>.<br>
+            Built using <strong>Python</strong>, <strong>Streamlit</strong>, and <strong>Machine Learning</strong> to help predict student academic performance.
+        </p>
+        <p style="text-align:center;">✨ Created with 💙 by Mohammed Hussain Kamal Ahmed Choudhary & Team</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ------------------- FOOTER -------------------
 st.markdown("""
-<hr style='border: 0.5px solid #ccc; margin-top: 50px;'>
-<div style='text-align: center; font-size: 14px; color: #888;'>
-    📚 <strong>SmartStudent AI</strong> — A project presented by <strong>Team Data Decoders</strong><br>
-    🎓 For the Tech Event at <strong>Vidyalankar College</strong><br>
-    Built with ❤️ using <a href='https://streamlit.io' target='_blank'>Streamlit</a>
-</div>
+    <hr style='border: none; border-top: 1px solid #ccc; margin-top: 30px;'>
+    <div style='text-align: center; font-size: 13px; color: gray;'>
+        🚀 Presented by <strong>Team Data Decoders</strong> | 📍 Vidyalankar College <br>
+        💡 Powered by <a href='https://streamlit.io' target='_blank'>Streamlit</a> | 🔗 <a href='https://github.com/hussain09042005/SmartStudentAI' target='_blank'>GitHub Repo</a>
+    </div>
 """, unsafe_allow_html=True)
-
