@@ -1,11 +1,6 @@
-Student_ID,Name,Attendance (%),Assignment Score,Midterm Marks,Final Exam Marks,Class Participation
-S101,John Doe,88,75,68,80,85
-S102,Jane Smith,92,85,79,88,90
-S103,Ali Khan,70,55,45,50,60
-S104,Sara Ali,95,90,85,93,95
-S105,Ravi Kumar,60,40,35,30,50
-S106,Priya Singh,80,78,70,75,70
-S107,Aarav Patel,85,82,65,68,72
-S108,Emily Brown,90,89,92,94,96
-S109,Liam Wilson,45,35,25,30,40
-S110,Noah Davis,76,65,55,58,65
+Student Name,Attendance (%),Assignment Score,Midterm Marks,Final Exam Marks,Class Participation,Final Result
+Aarav Patel,90,85,78,88,8,Pass
+Meera Shah,75,65,55,60,6,Fail
+Rohan Verma,82,80,70,75,7,Pass
+Sneha Iyer,60,58,45,50,5,Fail
+Karan Mehta,95,90,85,92,9,Pass
