@@ -5,82 +5,130 @@ import plotly.express as px
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-# Load trained model
-model = joblib.load("model.pkl")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="SmartStudent AI - Academic Dashboard",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# App title and team name
-st.set_page_config(page_title="SmartStudent AI Dashboard", layout="wide")
-st.title("📊 SmartStudent AI: Predictive Academic Dashboard")
-st.subheader("By Team Data Decoders")
+# ---------------- CUSTOM STYLES ----------------
+st.markdown("""
+    <style>
+        body {
+            background-color: #f8fbff;
+        }
+        .reportview-container .main {
+            background-color: #f8fbff;
+        }
+        .block-container {
+            padding: 2rem 2rem;
+        }
+        h1, h2, h3 {
+            color: #0d6efd;
+        }
+        .stButton > button {
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 10px;
+        }
+        .stTextInput, .stFileUploader {
+            border-radius: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# Sidebar navigation
-menu = st.sidebar.radio("Navigation", ["Upload CSV & Predict", "Visual Analysis", "About Team"])
+# ---------------- LOAD MODEL ----------------
+try:
+    model = joblib.load("model.pkl")
+except:
+    model = None
+    st.warning("⚠️ Model not found. Please train the model and include model.pkl.")
 
-# Upload & Predict Section
-if menu == "Upload CSV & Predict":
-    st.header("📁 Upload Student CSV File")
+# ---------------- MAIN HEADER ----------------
+st.markdown(
+    "<h1 style='text-align: center;'>📊 SmartStudent AI: Predictive Academic Dashboard</h1>",
+    unsafe_allow_html=True
+)
+st.markdown("---")
 
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+# ---------------- SIDEBAR ----------------
+st.sidebar.title("Navigation")
+section = st.sidebar.radio("Go to:", ["Upload CSV & Predict", "Visual Analysis", "About Team"])
+
+# ---------------- SECTION 1: Upload & Predict ----------------
+if section == "Upload CSV & Predict":
+    st.subheader("📁 Upload Student CSV File")
+    uploaded_file = st.file_uploader("Upload your .csv file", type=["csv"])
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
+        st.success("✅ File uploaded successfully!")
+        st.write("### 📄 Uploaded Data Preview:")
+        st.dataframe(df.head())
 
-        if "Final Result" in df.columns:
-            X = df.iloc[:, 2:-1]
-        else:
-            X = df.iloc[:, 2:]
+        if model:
+            try:
+                X = df.iloc[:, 2:]  # Assuming first 2 columns are Name & Roll No
+                predictions = model.predict(X)
+                df["Predicted Result"] = predictions
 
-        try:
-            predictions = model.predict(X)
-            df["Predicted Result"] = predictions
-            st.success("✅ Prediction Completed")
+                st.write("### ✅ Prediction Results:")
+                st.dataframe(df)
 
-            st.dataframe(df)
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download Result CSV", data=csv, file_name="predicted_results.csv", mime='text/csv')
+            except Exception as e:
+                st.error(f"Prediction failed: {e}")
 
-            # Download result
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("Download Predicted CSV", csv, "predicted_results.csv", "text/csv")
-        except Exception as e:
-            st.error(f"⚠️ Error during prediction: {e}")
-    else:
-        st.info("📥 Upload a student dataset in CSV format.")
+# ---------------- SECTION 2: Visual Analysis ----------------
+elif section == "Visual Analysis":
+    st.subheader("📊 Student Performance Analysis")
 
-# Visual Analysis Section
-elif menu == "Visual Analysis":
-    st.header("📈 Student Performance Visual Analysis")
-    st.markdown("Upload a CSV file with student scores and explore visual trends.")
+    sample = pd.read_csv("sample_data.csv")  # Use your dataset name here
 
-    uploaded_file = st.file_uploader("Upload CSV for Visual Analysis", type="csv", key="viz")
+    col1, col2 = st.columns(2)
 
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
+    with col1:
+        st.markdown("#### 🎯 Result Distribution")
+        fig = px.pie(sample, names="Final Result", title="Pass/Fail Distribution", color_discrete_sequence=px.colors.qualitative.Set3)
+        st.plotly_chart(fig)
 
-        # Show correlation heatmap
-        st.subheader("Correlation Heatmap")
-        corr = df.corr(numeric_only=True)
-        fig, ax = plt.subplots()
-        sns.heatmap(corr, annot=True, cmap="Blues", ax=ax)
-        st.pyplot(fig)
+    with col2:
+        st.markdown("#### 🧠 Marks Comparison")
+        marks_columns = sample.columns[2:-1]
+        avg_marks = sample[marks_columns].mean().sort_values(ascending=False)
+        fig2 = px.bar(x=avg_marks.index, y=avg_marks.values, labels={'x': "Subjects", 'y': "Average Marks"},
+                      title="Average Marks per Subject", color=avg_marks.values, color_continuous_scale='Blues')
+        st.plotly_chart(fig2)
 
-        # Plot distributions
-        st.subheader("📌 Score Distribution")
-        score_columns = df.select_dtypes(include='number').columns.tolist()
+    st.markdown("#### 📉 Correlation Heatmap")
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(sample[marks_columns].corr(), annot=True, cmap="Blues", fmt=".2f")
+    st.pyplot(plt)
 
-        if score_columns:
-            selected_col = st.selectbox("Select a column to view distribution", score_columns)
-            fig = px.histogram(df, x=selected_col, nbins=20, title=f"Distribution of {selected_col}")
-            st.plotly_chart(fig)
-        else:
-            st.warning("⚠️ No numeric columns found in your file.")
+# ---------------- SECTION 3: About Team ----------------
+elif section == "About Team":
+    st.subheader("👨‍💻 About Team Data Decoders")
 
-# About Team Section
-elif menu == "About Team":
-    st.header("👨‍💻 About Team Data Decoders")
     st.markdown("""
-    - 📚 This dashboard is built by **Team Data Decoders** from **Vidyalankar College**, as part of the BSc IT final-year project.
-    - 🎯 The goal is to help predict student outcomes using machine learning and present interactive visual analysis tools.
-    - 💡 Powered by Streamlit, Plotly, Seaborn, and Scikit-learn.
-    - 💻 Developed and deployed in 2025.
-    """)
+        <div style='background-color: #e9f5ff; padding: 20px; border-radius: 10px;'>
+            <h4 style='color:#0d6efd;'>Project Title:</h4>
+            <p><strong>SmartStudent AI: Predictive Academic Dashboard</strong></p>
 
-    st.image("https://static.streamlit.io/examples/team.png", width=400)
+            <h4 style='color:#0d6efd;'>Team Members:</h4>
+            <ul>
+                <li>💡 Mohammed Hussain Kamal Ahmed Choudhary</li>
+                <li>💡 [Add More Team Members]</li>
+            </ul>
+
+            <h4 style='color:#0d6efd;'>Tech Stack:</h4>
+            <ul>
+                <li>📌 Python</li>
+                <li>📌 Streamlit</li>
+                <li>📌 Scikit-learn</li>
+                <li>📌 Pandas, Seaborn, Plotly</li>
+            </ul>
+        </div>
+    """, unsafe_allow_html=True)
