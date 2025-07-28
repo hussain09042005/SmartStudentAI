@@ -231,7 +231,7 @@ with tab5:
 - 📊 Powered by Seaborn & Plotly
 - 💡 Built with Streamlit
         """)
-        st.image("C:/Users/Administrator/OneDrive/Desktop/SmartStudentAI/team.jpg", width=400)
+        st.image("team.jpg", width=280)
     with col2:
         st.subheader("📬 Get in Touch with Team")
         with st.form("contact_form"):
