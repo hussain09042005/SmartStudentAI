@@ -1,6 +1,11 @@
-Student Name,Attendance (%),Assignment Score,Midterm Marks,Final Exam Marks,Class Participation,Final Result
-Aarav Patel,90,85,78,88,8,Pass
-Meera Shah,75,65,55,60,6,Fail
-Rohan Verma,82,80,70,75,7,Pass
-Sneha Iyer,60,58,45,50,5,Fail
-Karan Mehta,95,90,85,92,9,Pass
+Name,Roll No,Assignment Score,Class Participation,Midterm Marks,Final Exam Marks,Final Result
+John Doe,101,85,9,72,88,Pass
+Jane Smith,102,78,8,65,82,Pass
+Alex Brown,103,90,10,85,91,Pass
+Sara Khan,104,67,7,58,73,Fail
+Mike Lee,105,88,9,80,87,Pass
+Ava Davis,106,76,6,61,79,Fail
+Liam Jones,107,82,8,70,83,Pass
+Emma Wilson,108,91,10,86,94,Pass
+Noah Taylor,109,69,7,55,68,Fail
+Olivia Moore,110,74,8,63,77,Fail

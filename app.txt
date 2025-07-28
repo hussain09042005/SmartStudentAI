@@ -1,0 +1,302 @@
+
+import streamlit as st
+import pandas as pd
+import joblib
+import plotly.express as px
+import seaborn as sns
+import matplotlib.pyplot as plt
+import datetime
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+import csv
+
+# ====== Email & CSV Logger ======
+def send_email(name, sender_email, message):
+    msg = MIMEMultipart()
+    msg["From"] = st.secrets["email"]
+    msg["To"] = st.secrets["receiver_email"]
+    msg["Subject"] = f"SmartStudent AI - Message from {name}"
+    body = f"Name: {name}\nEmail: {sender_email}\n\nMessage:\n{message}"
+    msg.attach(MIMEText(body, "plain"))
+
+    auto_reply = MIMEMultipart()
+    auto_reply["From"] = st.secrets["email"]
+    auto_reply["To"] = sender_email
+    auto_reply["Subject"] = "Thanks for contacting SmartStudent AI!"
+    auto_body = f"""Dear {name},
+
+Thank you for reaching out to Team Data Decoders!
+
+We have received your message and will get back to you shortly.
+
+Regards,
+📊 SmartStudent AI Team
+"""
+    auto_reply.attach(MIMEText(auto_body, "plain"))
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(st.secrets["email"], st.secrets["app_password"])
+            server.sendmail(st.secrets["email"], st.secrets["receiver_email"], msg.as_string())
+            server.sendmail(st.secrets["email"], sender_email, auto_reply.as_string())
+
+        log_contact_to_csv(name, sender_email, message)
+        return True
+    except Exception as e:
+        st.error(f"❌ Error sending email: {e}")
+        return False
+
+def log_contact_to_csv(name, email, message):
+    file_path = "contact_logs.csv"
+    file_exists = os.path.exists(file_path)
+    with open(file_path, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(["Name", "Email", "Message"])
+        writer.writerow([name, email, message])
+
+# ====== Load Model ======
+model = joblib.load("model.pkl")
+
+# ====== Page Config ======
+st.set_page_config(page_title="SmartStudent AI Dashboard", layout="wide", page_icon="📊")
+
+# ====== UI Styling ======
+st.markdown("""
+<style>
+html, body { background: linear-gradient(to right, #dbe9f4, #ffffff); font-family: 'Segoe UI', sans-serif; }
+h1, h2, h3, h4 { color: #2c3e50; }
+.stButton>button, .stDownloadButton>button {
+    background-color: #3498db; color: white; font-weight: bold; border-radius: 10px; padding: 0.6rem 1.5rem;
+}
+.stButton>button:hover { background-color: #2c80b4; transform: scale(1.02); }
+.metric-container { display: flex; gap: 2rem; margin-bottom: 1rem; }
+.metric-card { background-color: white; padding: 1.5rem; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.07); flex: 1; text-align: center; }
+.metric-label { font-size: 1rem; color: #777; }
+.metric-value { font-size: 2rem; font-weight: bold; color: #2c3e50; }
+footer {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
+# ====== Header & Tabs ======
+st.markdown("<h1 style='text-align:center;'>📊 SmartStudent AI: Predictive Academic Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;'>Developed by Team Data Decoders </p>", unsafe_allow_html=True)
+st.write("---")
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📁 Upload & Predict", 
+    "📈 Visual Analysis", 
+    "📊 Advanced Insights", 
+    "🔄 Retrain Model", 
+    "👨‍💻 About + Contact"
+])
+
+# ========== Tab 1: Upload & Predict ==========
+with tab1:
+    st.subheader("📁 Upload Student CSV File")
+    col1, col2 = st.columns([0.6, 0.4])
+    uploaded_file = col1.file_uploader("Choose a CSV file", type="csv")
+    use_sample = col2.button("🎓 Use Sample Student Data")
+    df = pd.read_csv("test_student_data.csv") if use_sample else pd.read_csv(uploaded_file) if uploaded_file else None
+
+    if df is not None:
+        required_columns = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
+        if any(col not in df.columns for col in required_columns):
+            st.error("❌ Missing required columns.")
+        else:
+            try:
+                X = df[required_columns]
+                predictions = model.predict(X)
+                df["Predicted Result"] = predictions
+
+                total = len(df)
+                passed = sum(df["Predicted Result"] == "Pass")
+                avg_marks = df["Final Exam Marks"].mean()
+                pass_percent = (passed / total) * 100
+
+                st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>Total Students</div><div class='metric-value'>{total}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>Pass Percentage</div><div class='metric-value'>{pass_percent:.2f}%</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>Average Final Marks</div><div class='metric-value'>{avg_marks:.2f}</div></div>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                st.dataframe(df, use_container_width=True)
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download CSV", csv, "predicted_results.csv", "text/csv")
+            except Exception as e:
+                st.error(f"⚠️ Prediction error: {e}")
+    else:
+        st.info("📥 Upload a student dataset or use the sample data.")
+
+# Remaining tabs will follow similarly... (trimmed here for space)
+# ====== Visual Analysis ======
+
+with tab2:
+    st.subheader("📊 Student Performance Visualizations")
+    uploaded_file = st.file_uploader("Upload CSV with Predictions", type="csv", key="viz")
+
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+
+        st.markdown("### 🔷 Correlation Heatmap")
+        corr = df.corr(numeric_only=True)
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.heatmap(corr, annot=True, cmap="Blues", ax=ax)
+        st.pyplot(fig)
+
+        st.markdown("### 📌 Score Distribution")
+        numeric_cols = df.select_dtypes(include='number').columns.tolist()
+        if numeric_cols:
+            selected_col = st.selectbox("Select a numeric column", numeric_cols)
+            fig = px.histogram(df, x=selected_col, nbins=20, title=f"Distribution of {selected_col}")
+            st.plotly_chart(fig)
+
+        st.markdown("### 🎯 Pass vs Fail Pie Chart")
+        if "Final Result" in df.columns:
+            result_counts = df["Final Result"].value_counts()
+            fig_pie = px.pie(names=result_counts.index, values=result_counts.values,
+                             title="Pass vs Fail Ratio", color_discrete_sequence=px.colors.qualitative.Set3)
+            st.plotly_chart(fig_pie)
+
+            st.markdown("### 📊 Pass vs Fail Bar Chart")
+            fig_bar = px.bar(x=result_counts.index, y=result_counts.values,
+                             labels={'x': 'Result', 'y': 'Count'}, text=result_counts.values,
+                             color=result_counts.index, color_discrete_sequence=['#27ae60', '#e74c3c'])
+            st.plotly_chart(fig_bar)
+        else:
+            st.warning("⚠️ 'Final Result' column not found.")
+
+        st.markdown("### 📈 Final Exam Marks Trend")
+        if "Final Exam Marks" in df.columns:
+            df_sorted = df.sort_values("Final Exam Marks")
+            fig = px.line(df_sorted, y="Final Exam Marks", title="Final Exam Marks Trend", markers=True)
+            st.plotly_chart(fig)
+
+# ====== Retrain Model ======
+with tab4:
+    st.subheader("🔄 Retrain the ML Model (with sample_data.csv)")
+    if st.button("Train Now"):
+        with st.spinner("Training the model..."):
+            try:
+                df_train = pd.read_csv("sample_data.csv")
+                features = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
+                X_train = df_train[features]
+                y_train = df_train["Final Result"]
+
+                model_new = RandomForestClassifier(n_estimators=100, random_state=42)
+                model_new.fit(X_train, y_train)
+
+                y_pred = model_new.predict(X_train)
+                accuracy = accuracy_score(y_train, y_pred)
+                report = classification_report(y_train, y_pred)
+
+                joblib.dump(model_new, "model.pkl")
+                timestamp = datetime.datetime.now().strftime("%d-%m-%Y %I:%M %p")
+
+                st.success(f"✅ Model retrained with accuracy: {accuracy:.2%}")
+                st.markdown(f"🕓 **Last Retrained:** {timestamp}")
+                st.code(report, language="text")
+
+            except Exception as e:
+                st.error(f"❌ Error during retraining: {e}")
+
+ # ====== About Team ======
+with tab5:
+    st.subheader("👨‍💻 Team Data Decoders")
+
+    col1, col2 = st.columns([1, 1])  # Two equal columns
+
+    with col1:
+        st.markdown("""
+- 🎓 Project for event at **Vidyalankar College**
+- 🧠 Predicts student performance using a trained ML model
+- 📊 Visual analysis powered by **Seaborn** and **Plotly**
+- 💡 Built with **Streamlit**, **Scikit-learn**, and **Pandas**
+- 🖥️ This dashboard runs completely **offline**, no internet required!
+        """)
+        st.image("C:/Users/Administrator/OneDrive/Desktop/SmartStudentAI/team.jpg", width=280)
+
+    with col2:
+        st.subheader("📬 Get in Touch with Team")
+        with st.form("contact_form"):
+            name = st.text_input("Your Name")
+            email_input = st.text_input("Your Email")
+            message = st.text_area("Your Message")
+            send = st.form_submit_button("📨 Send Email")
+
+            if send:
+                if name and email_input and message:
+                    success = send_email(name, email_input, message)
+                    if success:
+                        st.success(f"✅ Message sent successfully, {name}!")
+                else:
+                    st.warning("Please fill in all fields.")
+
+
+# ====== Advanced Insights ======
+with tab3:
+    st.subheader("📊 Advanced Data Insights")
+    uploaded_file = st.file_uploader("Upload CSV with Predictions", type="csv", key="insights")
+
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+
+        required = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks', 'Final Result']
+        if not all(col in df.columns for col in required):
+            st.warning("Please upload a CSV that includes prediction results and all required scores.")
+        else:
+            score_cols = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
+
+            # 📉 Box Plot
+            st.markdown("### 📉 Score Distribution (Box Plot)")
+            fig = px.box(df, y=score_cols, title="Box Plot of All Score Types")
+            st.plotly_chart(fig)
+
+            # 🧠 Violin Plot by Result
+            st.markdown("### 🧠 Final Exam Marks by Result (Violin Plot)")
+            fig = px.violin(df, y="Final Exam Marks", color="Final Result", box=True,
+                            title="Violin Plot: Final Exam Marks vs Result")
+            st.plotly_chart(fig)
+
+            # 📊 Stacked Bar Chart (Score Ranges)
+            st.markdown("### 📊 Pass/Fail by Final Exam Score Range")
+            df['Score Range'] = pd.cut(df['Final Exam Marks'], bins=[0, 40, 60, 75, 100],
+                                       labels=["<40", "40-60", "60-75", "75+"])
+            stacked_df = df.groupby(['Score Range', 'Final Result']).size().unstack().fillna(0)
+            fig = px.bar(stacked_df, barmode='stack', title="Pass/Fail Count by Score Range")
+            st.plotly_chart(fig)
+
+            # 🌀 Radar Chart (Top 5 Students)
+            st.markdown("### 🌀 Radar Comparison of Top 5 Final Scores")
+            top5 = df.sort_values("Final Exam Marks", ascending=False).head(5)
+            radar_data = top5.set_index("Final Result")[score_cols]
+            fig = px.line_polar(radar_data.reset_index(), r=radar_data.iloc[0],
+                                theta=score_cols, line_close=True,
+                                title=f"Radar Profile - Top Student")
+            st.plotly_chart(fig)
+
+            # 📈 Line Chart (Avg per Feature)
+            st.markdown("### 📈 Average Score by Feature")
+            avg_vals = df[score_cols].mean().reset_index()
+            avg_vals.columns = ["Feature", "Average"]
+            fig = px.line(avg_vals, x="Feature", y="Average", markers=True, title="Average Score per Feature")
+            st.plotly_chart(fig)
+
+            # 🔗 Pair Plot
+            st.markdown("### 🔗 Feature Relationship Matrix (Pair Plot)")
+            st.info("This chart may take 2-3 seconds to render.")
+            pairplot_fig = sns.pairplot(df[score_cols + ['Final Result']], hue="Final Result", palette="Set2")
+            st.pyplot(pairplot_fig)
+            # ====== Contact Form (Always Visible) ======
+st.markdown("---")
+
+
+
+
+   
+
