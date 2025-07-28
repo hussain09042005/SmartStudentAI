@@ -254,72 +254,67 @@ with tab5:
 # ====== Admin Panel ======
 # ==== Admin Login Section (in "🛡️ Admin Panel" tab) ====
 
+# ==== Admin Panel ====
 with tab6:
     st.subheader("🔐 Admin Login")
 
-    # Initialize session state for admin login
+    # Initialize session state
     if "admin_logged_in" not in st.session_state:
         st.session_state["admin_logged_in"] = False
 
-    # Show login form only if not logged in
+    # Login Form
     if not st.session_state["admin_logged_in"]:
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        login_btn = st.button("Login")
-
-        if login_btn:
+        if st.button("Login"):
             if username == "admin" and password == "hussain123":
                 st.session_state["admin_logged_in"] = True
                 st.success("✅ Welcome, Admin!")
+                st.rerun()
             else:
                 st.error("❌ Invalid credentials")
 
-    # If logged in, show admin dashboard
-    # If logged in, show admin dashboard
-if st.session_state["admin_logged_in"]:
-    st.markdown("### 🛡️ Admin Dashboard - Contact Messages")
+    # ==== Show Admin Tabs only if logged in ====
+    if st.session_state["admin_logged_in"]:
+        st.markdown("### 🛡️ Admin Dashboard - Contact Messages")
 
-    # 🛡️ Admin Tabs
-    admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📨 Messages", "📊 Logs", "📥 Downloads"])
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📨 Messages", "📊 Logs", "📥 Downloads"])
 
-    with admin_tab1:
-        try:
-            df = pd.read_csv("contact_logs.csv")
-            df.columns = ["Name", "Email", "Message", "Timestamp"]
+        with admin_tab1:
+            try:
+                df = pd.read_csv("contact_logs.csv")
+                df.columns = ["Name", "Email", "Message", "Timestamp"]
 
-            st.markdown("### 📨 Contact Messages")
+                for index, row in df.iterrows():
+                    st.markdown(f"""
+                    <div style="padding: 1rem; background-color: #fff; border-radius: 10px; margin-bottom: 10px; color: black;">
+                        <strong>👤 Name:</strong> {row['Name']}<br>
+                        <strong>📧 Email:</strong> {row['Email']}<br>
+                        <strong>📝 Message:</strong> {row['Message']}<br>
+                        <strong>🕒 Timestamp:</strong> {row['Timestamp']}
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            for index, row in df.iterrows():
-                st.markdown(f"""
-              <div style="padding: 1rem; background-color: white; color: black; border: 1px solid #ddd; border-radius: 10px; margin-bottom: 10px;">
-    <strong>👤 Name:</strong> {row['Name']}<br>
-    <strong>📧 Email:</strong> {row['Email']}<br>
-    <strong>📝 Message:</strong> {row['Message']}<br>
-    <strong>🕒 Timestamp:</strong> {row['Timestamp']}
-</div>
+                    delete_btn = st.button(f"🗑️ Delete Message {index+1}", key=f"delete_{index}")
+                    if delete_btn:
+                        df.drop(index, inplace=True)
+                        df.to_csv("contact_logs.csv", index=False)
+                        st.success("✅ Message deleted successfully!")
+                        st.experimental_rerun()
+            except Exception as e:
+                st.warning("⚠️ Could not load contact messages.")
+                st.text(str(e))
 
-                """, unsafe_allow_html=True)
+        with admin_tab2:
+            st.info("📊 Logs will be added soon.")
 
-                delete_btn = st.button(f"🗑️ Delete Message {index+1}", key=f"delete_{index}")
-                if delete_btn:
-                    df.drop(index, inplace=True)
-                    df.to_csv("contact_logs.csv", index=False)
-                    st.success("✅ Message deleted successfully!")
-                    st.rerun()
+        with admin_tab3:
+            try:
+                with open("contact_logs.csv", "rb") as f:
+                    st.download_button("⬇️ Download contact_logs.csv", f, file_name="contact_logs.csv")
+            except:
+                st.warning("⚠️ Download unavailable.")
 
-        except Exception as e:
-            st.warning("⚠️ Could not load contact messages.")
-            st.text(str(e))
-
-    with admin_tab2:
-        st.info("📊 Logs will be displayed here in the future.")
-
-    with admin_tab3:
-        try:
-            with open("contact_logs.csv", "rb") as f:
-                st.download_button("⬇️ Download contact_logs.csv", f, file_name="contact_logs.csv")
-        except:
-            st.warning("⚠️ Download unavailable.")
 
 
 
