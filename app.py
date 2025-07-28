@@ -37,7 +37,6 @@ We have received your message and will get back to you shortly.
 
 Regards,
 📊 SmartStudent AI Team
-Vidyalankar College
 """
     auto_reply.attach(MIMEText(auto_body, "plain"))
 
@@ -102,7 +101,7 @@ footer {visibility: hidden;}
 
 # ====== Header ======
 st.markdown("<h1 style='text-align:center;'>📊 SmartStudent AI: Predictive Academic Dashboard</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'>Developed by Team Data Decoders • Vidyalankar College</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;'>Developed by Team Data Decoders</p>", unsafe_allow_html=True)
 st.write("---")
 
 def load_lottie_url(url):
