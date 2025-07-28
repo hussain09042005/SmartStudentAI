@@ -10,7 +10,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 import csv
-from streamlit_lottie import st_lottie
 import json
 import requests
 import time  
