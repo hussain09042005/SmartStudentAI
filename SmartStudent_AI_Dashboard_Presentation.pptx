@@ -1,0 +1,119 @@
+from pptx import Presentation
+from pptx.util import Pt
+from pptx.dml.color import RGBColor
+
+# Create the presentation
+prs = Presentation()
+title_slide_layout = prs.slide_layouts[0]
+bullet_slide_layout = prs.slide_layouts[1]
+
+# Font configuration
+TITLE_FONT_SIZE = Pt(40)
+BODY_FONT_SIZE = Pt(22)
+TITLE_COLOR = RGBColor(30, 30, 120)
+
+def set_text_style(paragraph, font_size=BODY_FONT_SIZE, bold=False):
+    run = paragraph.runs[0]
+    run.font.size = font_size
+    run.font.bold = bold
+    run.font.name = 'Calibri'
+    run.font.color.rgb = RGBColor(50, 50, 50)
+
+def add_bullet_slide(title, bullets):
+    slide = prs.slides.add_slide(bullet_slide_layout)
+    slide.shapes.title.text = title
+    title_shape = slide.shapes.title
+    title_shape.text_frame.paragraphs[0].font.size = TITLE_FONT_SIZE
+    title_shape.text_frame.paragraphs[0].font.color.rgb = TITLE_COLOR
+
+    body_shape = slide.shapes.placeholders[1]
+    tf = body_shape.text_frame
+    tf.clear()
+    for i, bullet in enumerate(bullets):
+        p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
+        p.text = bullet
+        p.level = 0
+        set_text_style(p)
+
+# Title Slide
+slide = prs.slides.add_slide(title_slide_layout)
+slide.shapes.title.text = "SmartStudent AI\nPredictive Academic Dashboard"
+slide.placeholders[1].text = (
+    "📊 Powered by Streamlit + Scikit-learn\n\n"
+    "👨‍💻 Mohammed Hussain Kamal Ahmed Choudhary\n"
+    "📧 choudharyhussain11@gmail.com\n\n"
+    "By: Team Data Decoders"
+)
+
+# Slides
+add_bullet_slide("📌 Project Overview", [
+    "AI-powered dashboard for academic prediction",
+    "Upload CSV to predict pass/fail outcomes",
+    "Visual analytics & model retraining options",
+    "Secure admin login + email system"
+])
+
+add_bullet_slide("🧰 Tech Stack", [
+    "🔍 Scikit-learn – Predictive ML Model",
+    "📊 Streamlit – Dashboard (Frontend)",
+    "📦 Pandas, NumPy – Data handling",
+    "📈 Plotly, Seaborn, Matplotlib – Visuals",
+    "📧 SMTP (Gmail App Passwords) – Emailing",
+    "☁️ Streamlit Cloud + GitHub – Hosting & CI"
+])
+
+add_bullet_slide("✨ Core Features", [
+    "📁 Upload CSV & Predict pass/fail",
+    "📈 Visual reports: heatmaps, histograms",
+    "📊 Advanced insights: boxplots, trend lines",
+    "🔄 Retrain model with sample data",
+    "🛡️ Secure admin login to view messages"
+])
+
+add_bullet_slide("📊 Dashboard Components", [
+    "✅ CSV Upload and Live Predictions",
+    "📉 Visual Analytics – Pie, Bar, Heatmaps",
+    "🧠 Model Retraining Interface",
+    "✉️ Contact Form + Auto Reply via Email",
+    "🧾 Message Logging with timestamps"
+])
+
+add_bullet_slide("🔐 Admin & Email Features", [
+    "🛡️ Secure Login Panel for Admin",
+    "📧 Auto-email reply to contact form users",
+    "📥 Admin inbox view with logs",
+    "🧾 Timestamps & user message history stored"
+])
+
+add_bullet_slide("📈 Visual Insights", [
+    "📊 Pie Charts – Pass/Fail Ratio",
+    "📉 Histograms – Score Distribution",
+    "🔥 Heatmaps – Feature Correlation",
+    "📦 Boxplots – Score Spread",
+    "📈 Trends – Performance Over Time"
+])
+
+add_bullet_slide("🚀 Deployment & Setup", [
+    "☁️ Hosted on Streamlit Cloud",
+    "🔗 Repo on GitHub",
+    "📄 Required: requirements.txt, runtime.txt",
+    "🔐 Secrets stored in .streamlit/secrets.toml",
+    "⚙️ Python 3.10+ environment"
+])
+
+add_bullet_slide("🧪 Demo Flow", [
+    "1. Admin logs in securely",
+    "2. User uploads academic CSV",
+    "3. Model predicts and shows results",
+    "4. Dashboard auto-generates visual insights",
+    "5. Contact form submits email + auto-reply",
+    "6. Admin reviews logs and queries"
+])
+
+add_bullet_slide("👥 Team & Contact", [
+    "👨‍💻 Mohammed Hussain Kamal Ahmed Choudhary",
+    "📧 choudharyhussain11@gmail.com",
+    "👨‍🔧 Team Name: Data Decoders",
+    "🌐 GitHub | Streamlit | Email Links"
+])
+

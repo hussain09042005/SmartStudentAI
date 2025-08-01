@@ -300,7 +300,8 @@ with tab6:
                         df.drop(index, inplace=True)
                         df.to_csv("contact_logs.csv", index=False)
                         st.success("✅ Message deleted successfully!")
-                        st.experimental_rerun()
+                        st.rerun()
+
             except Exception as e:
                 st.warning("⚠️ Could not load contact messages.")
                 st.text(str(e))
