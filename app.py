@@ -225,7 +225,7 @@ with tab5:
     with col1:
         st.subheader("👨‍💻 Team Data Decoders")
         st.markdown("""
-- 🎓 Vidyalankar College Project
+- 🎓 National Level Conclave Project
 - 🧠 Predicts academic success using ML
 - 📊 Powered by Seaborn & Plotly
 - 💡 Built with Streamlit
