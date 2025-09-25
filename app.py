@@ -89,12 +89,18 @@ try:
 except:
     new_msgs_count = 0
 
-menu = ["Dashboard", "Visual Analysis", "Advanced Insights", "Retrain Model", "About + Contact", "Admin Panel"]
-choice = st.sidebar.selectbox("Navigation", menu)
+# Menu with dynamic badge
+menu_items = [
+    "Dashboard",
+    "Visual Analysis",
+    "Advanced Insights",
+    "Retrain Model",
+    "About + Contact",
+    f"Admin Panel {'<span class=\"new-badge\">'+str(new_msgs_count)+'</span>' if new_msgs_count>0 else ''}"
+]
 
-# Show new messages badge
-if new_msgs_count > 0:
-    st.sidebar.markdown(f"**🆕 New Messages: {new_msgs_count}**")
+# Streamlit selectbox with HTML for badge
+choice = st.sidebar.selectbox("Navigation", menu_items, format_func=lambda x: x.split('<')[0])
 
 
 # ==================== Dashboard ====================
