@@ -237,14 +237,16 @@ elif choice == "Admin Panel":
         except:
             df_logs = pd.DataFrame(columns=["Name","Email","Message","Reply","Timestamp","Seen"])
 
-        # Ensure 'Seen' column exists
+        # Ensure 'Seen' and 'Reply' columns exist
         if 'Seen' not in df_logs.columns:
             df_logs['Seen'] = 'No'
         if 'Reply' not in df_logs.columns:
             df_logs['Reply'] = ''
 
+        # Compute metrics
         total_msgs = len(df_logs)
-        today_msgs = len(df_logs[df_logs["Timestamp"].str.startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
+        today_msgs = len(df_logs[df_logs["Timestamp"].notna() & 
+                         df_logs["Timestamp"].str.startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
         new_msgs_count = len(df_logs[df_logs["Seen"]=="No"])
 
         # Metrics Cards
@@ -325,5 +327,6 @@ elif choice == "Admin Panel":
                     st.download_button("Download contact_logs.csv", f, file_name="contact_logs.csv")
             else:
                 st.warning("⚠️ No data to download.")
+
 
 
