@@ -209,7 +209,7 @@ elif choice == "About + Contact":
         else:
             st.warning("⚠️ Please fill all fields.")
 
-# ==================== Admin Panel ====================
+# ------------------- Admin Panel -------------------
 elif choice == "Admin Panel":
     st.subheader("🔐 Admin Login")
 
@@ -231,29 +231,23 @@ elif choice == "Admin Panel":
     if st.session_state["admin_logged_in"]:
         st.markdown("### 🛡️ Admin Dashboard - Overview")
 
-        # Load contact logs safely
+        # Load messages
         try:
             df_logs = pd.read_csv("contact_logs.csv")
-        except FileNotFoundError:
-            df_logs = pd.DataFrame(columns=["Name", "Email", "Message", "Reply", "Timestamp", "Seen"])
+        except:
+            df_logs = pd.DataFrame(columns=["Name","Email","Message","Reply","Timestamp","Seen"])
 
-        # Ensure all necessary columns exist
-        for col in ["Reply", "Seen", "Timestamp"]:
-            if col not in df_logs.columns:
-                if col == "Seen":
-                    df_logs[col] = "No"
-                else:
-                    df_logs[col] = ""
+        # Ensure 'Seen' column exists
+        if 'Seen' not in df_logs.columns:
+            df_logs['Seen'] = 'No'
+        if 'Reply' not in df_logs.columns:
+            df_logs['Reply'] = ''
 
-        # Convert Timestamp to string and fill NaN
-        df_logs["Timestamp"] = df_logs["Timestamp"].fillna("").astype(str)
-
-        # Metrics
         total_msgs = len(df_logs)
         today_msgs = len(df_logs[df_logs["Timestamp"].str.startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
-        new_msgs_count = len(df_logs[df_logs["Seen"] == "No"])
+        new_msgs_count = len(df_logs[df_logs["Seen"]=="No"])
 
-        # Display metrics
+        # Metrics Cards
         st.markdown(f"""
         <div style="display:flex; gap:1.5rem; margin-bottom:1rem;">
             <div style="flex:1; background-color:#3498db; color:white; padding:1.5rem; border-radius:16px; text-align:center;">
@@ -271,10 +265,10 @@ elif choice == "Admin Panel":
         </div>
         """, unsafe_allow_html=True)
 
-        # Tabs
+        # ---------------- Define Tabs -----------------
         admin_tab1, admin_tab2, admin_tab3 = st.tabs([f"📨 Messages ({new_msgs_count} new)", "📊 Logs", "📥 Downloads"])
 
-        # ----------------- Messages Tab -----------------
+        # ---------------- Messages Tab -----------------
         with admin_tab1:
             st.markdown("### 💌 Contact Messages")
             if df_logs.empty:
@@ -289,8 +283,11 @@ elif choice == "Admin Panel":
                             df_logs.at[index, 'Seen'] = 'Yes'
                             df_logs.to_csv("contact_logs.csv", index=False)
 
-                        # Reply area
-                        reply_text = st.text_area("✉️ Reply", key=f"reply_{index}", height=100, value=row.get("Reply", ""))
+                        # Safely get reply value as string
+                        reply_value = str(row.get("Reply", ""))
+
+                        # Reply text area
+                        reply_text = st.text_area("✉️ Reply", key=f"reply_{index}", height=100, value=reply_value)
                         send_reply = st.button("Send Reply", key=f"send_{index}", use_container_width=True)
 
                         if send_reply and reply_text.strip():
@@ -312,7 +309,7 @@ elif choice == "Admin Panel":
                             except Exception as e:
                                 st.error(f"❌ Failed to send reply: {e}")
 
-        # ----------------- Logs Tab -----------------
+        # ---------------- Logs Tab -----------------
         with admin_tab2:
             st.markdown("### 📊 Contact Logs")
             if df_logs.empty:
@@ -320,7 +317,7 @@ elif choice == "Admin Panel":
             else:
                 st.dataframe(df_logs.sort_values(by="Timestamp", ascending=False), use_container_width=True)
 
-        # ----------------- Downloads Tab -----------------
+        # ---------------- Downloads Tab -----------------
         with admin_tab3:
             st.markdown("### ⬇️ Download Logs")
             if not df_logs.empty:
