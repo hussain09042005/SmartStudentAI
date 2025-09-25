@@ -89,18 +89,12 @@ try:
 except:
     new_msgs_count = 0
 
-# Menu with dynamic badge
-menu_items = [
-    "Dashboard",
-    "Visual Analysis",
-    "Advanced Insights",
-    "Retrain Model",
-    "About + Contact",
-    f"Admin Panel {'<span class=\"new-badge\">'+str(new_msgs_count)+'</span>' if new_msgs_count>0 else ''}"
-]
+menu = ["Dashboard", "Visual Analysis", "Advanced Insights", "Retrain Model", "About + Contact", "Admin Panel"]
+choice = st.sidebar.selectbox("Navigation", menu)
 
-# Streamlit selectbox with HTML for badge
-choice = st.sidebar.selectbox("Navigation", menu_items, format_func=lambda x: x.split('<')[0])
+# Show new messages badge
+if new_msgs_count > 0:
+    st.sidebar.markdown(f"**🆕 New Messages: {new_msgs_count}**")
 
 
 # ==================== Dashboard ====================
@@ -243,16 +237,14 @@ elif choice == "Admin Panel":
         except:
             df_logs = pd.DataFrame(columns=["Name","Email","Message","Reply","Timestamp","Seen"])
 
-        # Ensure 'Seen' and 'Reply' columns exist
+        # Ensure 'Seen' column exists
         if 'Seen' not in df_logs.columns:
             df_logs['Seen'] = 'No'
         if 'Reply' not in df_logs.columns:
             df_logs['Reply'] = ''
 
-        # Compute metrics
         total_msgs = len(df_logs)
-        today_msgs = len(df_logs[df_logs["Timestamp"].notna() & 
-                         df_logs["Timestamp"].str.startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
+        today_msgs = len(df_logs[df_logs["Timestamp"].str.startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
         new_msgs_count = len(df_logs[df_logs["Seen"]=="No"])
 
         # Metrics Cards
@@ -333,6 +325,5 @@ elif choice == "Admin Panel":
                     st.download_button("Download contact_logs.csv", f, file_name="contact_logs.csv")
             else:
                 st.warning("⚠️ No data to download.")
-
 
 
