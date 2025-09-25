@@ -227,25 +227,33 @@ elif choice == "Admin Panel":
                 st.success("✅ Welcome, Admin!")
             else:
                 st.error("❌ Invalid credentials.")
-                
+
     if st.session_state["admin_logged_in"]:
         st.markdown("### 🛡️ Admin Dashboard - Overview")
 
-        # Load messages
+        # Load contact logs safely
         try:
             df_logs = pd.read_csv("contact_logs.csv")
-        except:
-            df_logs = pd.DataFrame(columns=["Name","Email","Message","Reply","Timestamp"])
+        except FileNotFoundError:
+            df_logs = pd.DataFrame(columns=["Name", "Email", "Message", "Reply", "Timestamp", "Seen"])
 
-        # Ensure 'Seen' column exists
-        if 'Seen' not in df_logs.columns:
-            df_logs['Seen'] = 'No'
+        # Ensure all necessary columns exist
+        for col in ["Reply", "Seen", "Timestamp"]:
+            if col not in df_logs.columns:
+                if col == "Seen":
+                    df_logs[col] = "No"
+                else:
+                    df_logs[col] = ""
 
+        # Convert Timestamp to string and fill NaN
+        df_logs["Timestamp"] = df_logs["Timestamp"].fillna("").astype(str)
+
+        # Metrics
         total_msgs = len(df_logs)
         today_msgs = len(df_logs[df_logs["Timestamp"].str.startswith(datetime.datetime.now().strftime("%Y-%m-%d"))])
-        new_msgs_count = len(df_logs[df_logs["Seen"]=="No"])
+        new_msgs_count = len(df_logs[df_logs["Seen"] == "No"])
 
-        # Metrics Cards
+        # Display metrics
         st.markdown(f"""
         <div style="display:flex; gap:1.5rem; margin-bottom:1rem;">
             <div style="flex:1; background-color:#3498db; color:white; padding:1.5rem; border-radius:16px; text-align:center;">
@@ -275,13 +283,13 @@ elif choice == "Admin Panel":
                 for index, row in df_logs.iterrows():
                     with st.expander(f"👤 {row['Name']} - {row['Timestamp']}", expanded=False):
                         st.markdown(f"**📧 Email:** {row['Email']}  \n**📝 Message:** {row['Message']}")
-                        
+
                         # Mark as Seen automatically
                         if df_logs.at[index, 'Seen'] == 'No':
                             df_logs.at[index, 'Seen'] = 'Yes'
                             df_logs.to_csv("contact_logs.csv", index=False)
 
-                        # Reply text area
+                        # Reply area
                         reply_text = st.text_area("✉️ Reply", key=f"reply_{index}", height=100, value=row.get("Reply", ""))
                         send_reply = st.button("Send Reply", key=f"send_{index}", use_container_width=True)
 
@@ -290,7 +298,7 @@ elif choice == "Admin Panel":
                                 msg = MIMEMultipart()
                                 msg["From"] = st.secrets["email"]
                                 msg["To"] = row['Email']
-                                msg["Subject"] = f"Reply from SmartStudent AI"
+                                msg["Subject"] = "Reply from SmartStudent AI"
                                 msg.attach(MIMEText(reply_text, "plain"))
 
                                 with smtplib.SMTP("smtp.gmail.com", 587) as server:
@@ -320,4 +328,5 @@ elif choice == "Admin Panel":
                     st.download_button("Download contact_logs.csv", f, file_name="contact_logs.csv")
             else:
                 st.warning("⚠️ No data to download.")
+
 
