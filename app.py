@@ -17,6 +17,17 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 # ==================== Streamlit Page Config ====================
 st.set_page_config(page_title="SmartStudent AI", layout="wide", page_icon="📊")
 
+# ==================== Global Header (Project Name) ====================
+st.markdown("""
+    <div style="background:linear-gradient(90deg,#3498db,#2ecc71);
+                padding:1rem 2rem; border-radius:10px; text-align:center;
+                color:white; font-size:1.8rem; font-weight:bold;
+                box-shadow:0 4px 15px rgba(0,0,0,0.2); margin-bottom:20px;">
+        📊 SmartStudent AI: Predictive Academic Dashboard
+    </div>
+""", unsafe_allow_html=True)
+
+
 # ==================== CSS Styling ====================
 st.markdown("""
 <style>
@@ -232,38 +243,29 @@ elif choice == "Admin Panel":
     if st.session_state["admin_logged_in"]:
         st.markdown("### 🛡️ Admin Dashboard - Overview")
 
-        # ==================== Load messages safely ====================
+        # Load messages
         try:
-            df_logs = pd.read_csv("contact_logs.csv")
+            df_logs = pd.read_csv("contact_logs.csv", encoding='utf-8-sig')
         except:
             df_logs = pd.DataFrame(columns=["Name", "Email", "Message", "Reply", "Timestamp", "Seen"])
 
-        # Ensure required columns exist
-        for col in ["Seen", "Reply", "Timestamp"]:
-            if col not in df_logs.columns:
-                if col == "Seen":
-                    df_logs[col] = "No"
-                elif col == "Reply":
-                    df_logs[col] = ""
-                else:
-                    df_logs[col] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Clean data
+        df_logs['Timestamp'] = pd.to_datetime(df_logs.get('Timestamp'), errors='coerce')
+        df_logs['Timestamp'] = df_logs['Timestamp'].fillna(datetime.datetime.now())
+        df_logs['Seen'] = df_logs.get('Seen', 'No').fillna('No')
+        df_logs['Reply'] = df_logs.get('Reply', '').fillna('')
+        df_logs['Reply'] = df_logs['Reply'].apply(lambda x: '' if str(x).lower() == 'nan' else str(x))
 
-        # Ensure Reply and Timestamp columns are clean
-        df_logs['Reply'] = df_logs['Reply'].apply(lambda x: str(x) if isinstance(x, str) else "")
-        df_logs['Timestamp'] = df_logs['Timestamp'].apply(
-            lambda x: str(x) if pd.notna(x) else datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        )
-
-        # ==================== Metrics Cards ====================
+        # Metrics
         def get_counts():
             total_msgs = len(df_logs)
-            today_msgs = len(df_logs[df_logs["Timestamp"].str.startswith(
-                datetime.datetime.now().strftime("%Y-%m-%d"), na=False)])
+            today_msgs = len(df_logs[df_logs["Timestamp"].dt.date == datetime.datetime.now().date()])
             new_msgs_count = len(df_logs[df_logs["Seen"] == "No"])
             return total_msgs, today_msgs, new_msgs_count
 
         total_msgs, today_msgs, new_msgs_count = get_counts()
 
+        # Display metrics
         st.markdown(f"""
         <div style="display:flex; gap:1.5rem; margin-bottom:1rem;">
             <div style="flex:1; background-color:#3498db; color:white; padding:1.5rem; border-radius:16px; text-align:center;">
@@ -281,7 +283,7 @@ elif choice == "Admin Panel":
         </div>
         """, unsafe_allow_html=True)
 
-        # ==================== Tabs ====================
+        # Tabs
         admin_tab1, admin_tab2, admin_tab3 = st.tabs([f"📨 Messages ({new_msgs_count} new)", "📊 Logs", "📥 Downloads"])
 
         # ---------------- Messages Tab -----------------
@@ -294,21 +296,27 @@ elif choice == "Admin Panel":
                     name = str(row.get("Name", "Unknown"))
                     email = str(row.get("Email", ""))
                     message = str(row.get("Message", ""))
-                    timestamp = str(row.get("Timestamp", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    timestamp = row['Timestamp'].strftime("%Y-%m-%d %H:%M:%S")
                     reply_value = str(row.get("Reply", ""))
 
-                    # Show expander with timestamp
-                    with st.expander(f"👤 {name} - {timestamp}", expanded=False):
+                    # Track seen status
+                    if f"seen_{index}" not in st.session_state:
+                        st.session_state[f"seen_{index}"] = df_logs.at[index, 'Seen'] == 'Yes'
+
+                    # Unique key for expander
+                    expander_key = f"exp_{index}_{row['Timestamp'].strftime('%Y%m%d%H%M%S')}"
+
+                    with st.expander(f"👤 {name} - {timestamp}", expanded=False, key=expander_key):
                         st.markdown(f"**📧 Email:** {email}  \n**📝 Message:** {message}")
 
-                        # Mark as Seen dynamically
-                        if df_logs.at[index, 'Seen'] == 'No':
+                        # Mark as seen
+                        if not st.session_state[f"seen_{index}"]:
                             df_logs.at[index, 'Seen'] = 'Yes'
-                            df_logs.to_csv("contact_logs.csv", index=False)
+                            df_logs.to_csv("contact_logs.csv", index=False, encoding='utf-8-sig')
+                            st.session_state[f"seen_{index}"] = True
                             total_msgs, today_msgs, new_msgs_count = get_counts()
-                            st.experimental_rerun()  # refresh the badge dynamically
 
-                        # Reply text area
+                        # Reply
                         reply_text = st.text_area("✉️ Reply", key=f"reply_{index}", height=100, value=reply_value)
                         send_reply = st.button("Send Reply", key=f"send_{index}", use_container_width=True)
 
@@ -327,11 +335,9 @@ elif choice == "Admin Panel":
 
                                 st.success(f"✅ Reply sent to {name}!")
                                 df_logs.at[index, "Reply"] = reply_text
-                                df_logs.to_csv("contact_logs.csv", index=False)
+                                df_logs.to_csv("contact_logs.csv", index=False, encoding='utf-8-sig')
 
-                                # Refresh counts after reply
                                 total_msgs, today_msgs, new_msgs_count = get_counts()
-                                st.experimental_rerun()
                             except Exception as e:
                                 st.error(f"❌ Failed to send reply: {e}")
 
@@ -351,6 +357,9 @@ elif choice == "Admin Panel":
                     st.download_button("Download contact_logs.csv", f, file_name="contact_logs.csv")
             else:
                 st.warning("⚠️ No data to download.")
+
+
+
 
 
 
