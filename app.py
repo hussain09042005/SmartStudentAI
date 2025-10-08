@@ -290,18 +290,101 @@ elif choice == "Visual Analysis":
         st.info("📁 Upload your **Predicted CSV** file to begin visual analysis.")
 
 
-# ==================== Advanced Insights ====================
+# ==================== Advanced Insights (Professional Version) ====================
 elif choice == "Advanced Insights":
-    st.header("📊 Advanced Insights")
-    uploaded_file = st.file_uploader("Upload CSV with Predictions", type="csv", key="adv")
+    st.markdown("""
+    <div style="background:linear-gradient(90deg,#1abc9c,#16a085);
+                padding:1rem 2rem; border-radius:10px; text-align:center;
+                color:white; font-size:1.5rem; font-weight:bold; margin-bottom:25px;">
+        📊 Advanced Insights & Trend Analysis
+    </div>
+    """, unsafe_allow_html=True)
+
+    uploaded_file = st.file_uploader("📂 Upload CSV with Predictions", type="csv", key="adv")
+
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
-        numeric_cols = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
-        if all(col in df.columns for col in numeric_cols+["Final Result"]):
-            st.plotly_chart(px.box(df, y=numeric_cols, title="Boxplot of Scores"))
-            st.plotly_chart(px.imshow(df[numeric_cols].corr(), text_auto=True, color_continuous_scale="Blues", title="Correlation Heatmap"))
-        else:
-            st.warning("Upload CSV with all required columns.")
+
+        st.markdown("### 🔍 Choose Insight Type")
+        insight_type = st.selectbox("Select Analysis:", [
+            "Trend Over Students",
+            "Score Comparison (Multi Metric)",
+            "Correlation Heatmap",
+            "Boxplot Insights",
+            "Prediction Accuracy & Confusion Matrix"
+        ])
+
+        # ================== TREND ANALYSIS ==================
+        if insight_type == "Trend Over Students":
+            st.markdown("### 📈 Trend of Scores Across Students")
+            numeric_cols = df.select_dtypes(include='number').columns.tolist()
+            if numeric_cols:
+                selected_col = st.selectbox("Select a column to visualize trend:", numeric_cols)
+                df["Student Index"] = range(1, len(df) + 1)
+                fig = px.line(df, x="Student Index", y=selected_col,
+                              title=f"Trend of {selected_col} Over Students",
+                              markers=True, line_shape="spline",
+                              color_discrete_sequence=["#1abc9c"])
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ No numeric columns found in dataset.")
+
+        # ================== MULTI-METRIC COMPARISON ==================
+        elif insight_type == "Score Comparison (Multi Metric)":
+            st.markdown("### 📊 Comparative View of Student Scores")
+            cols = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
+            available_cols = [c for c in cols if c in df.columns]
+            if available_cols:
+                melted_df = df.melt(value_vars=available_cols,
+                                    var_name='Score Type', value_name='Value')
+                fig = px.violin(melted_df, x='Score Type', y='Value', box=True, points='all',
+                                color='Score Type', color_discrete_sequence=px.colors.qualitative.Safe,
+                                title="Score Comparison across Assessments")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ Required columns not found for comparison.")
+
+        # ================== CORRELATION HEATMAP ==================
+        elif insight_type == "Correlation Heatmap":
+            st.markdown("### 🔷 Correlation Between All Score Columns")
+            numeric_df = df.select_dtypes(include='number')
+            if not numeric_df.empty:
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.heatmap(numeric_df.corr(), annot=True, cmap="YlGnBu", fmt=".2f", linewidths=0.5)
+                st.pyplot(fig)
+            else:
+                st.warning("⚠️ No numeric data available.")
+
+        # ================== BOXPLOT INSIGHTS ==================
+        elif insight_type == "Boxplot Insights":
+            st.markdown("### 📦 Boxplot Insights - Detect Outliers & Variability")
+            numeric_cols = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
+            available_cols = [c for c in numeric_cols if c in df.columns]
+            if available_cols:
+                fig = px.box(df, y=available_cols, color_discrete_sequence=px.colors.sequential.Mint,
+                             title="Boxplot of Student Performance")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ No required columns found.")
+
+        # ================== PREDICTION ACCURACY & CONFUSION MATRIX ==================
+        elif insight_type == "Prediction Accuracy & Confusion Matrix":
+            st.markdown("### 🧠 Model Evaluation Insights")
+            if "Predicted Result" in df.columns and "Final Result" in df.columns:
+                correct = (df["Predicted Result"] == df["Final Result"]).sum()
+                total = len(df)
+                accuracy = (correct / total) * 100
+                st.metric("🎯 Prediction Accuracy", f"{accuracy:.2f}%")
+
+                cm = pd.crosstab(df["Final Result"], df["Predicted Result"], rownames=['Actual'], colnames=['Predicted'])
+                fig, ax = plt.subplots(figsize=(5, 4))
+                sns.heatmap(cm, annot=True, fmt="d", cmap="Purples")
+                st.pyplot(fig)
+            else:
+                st.warning("⚠️ Both 'Final Result' and 'Predicted Result' columns are required.")
+    else:
+        st.info("📁 Upload your **Predicted CSV** file to explore advanced insights.")
+
 
 # ==================== Retrain Model ====================
 elif choice == "Retrain Model":
