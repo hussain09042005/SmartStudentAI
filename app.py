@@ -202,25 +202,93 @@ if choice == "Dashboard":
     else:
         st.info("📥 Upload your CSV or click **🎓 Use Sample Data** to begin.")
 
-# ==================== Visual Analysis ====================
+## ==================== Visual Analysis (Professional Version) ====================
 elif choice == "Visual Analysis":
-    st.header("📈 Student Performance")
-    uploaded_file = st.file_uploader("Upload CSV with Predictions", type="csv", key="viz")
+    st.markdown("""
+    <div style="background:linear-gradient(90deg,#9b59b6,#8e44ad);
+                padding:1rem 2rem; border-radius:10px; text-align:center;
+                color:white; font-size:1.5rem; font-weight:bold; margin-bottom:25px;">
+        📈 Visual Analysis of Student Performance
+    </div>
+    """, unsafe_allow_html=True)
+
+    uploaded_file = st.file_uploader("📂 Upload CSV with Predictions", type="csv", key="viz")
+
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("### 🔷 Score Distribution")
+
+        st.markdown("### 🔍 Select Visualization Options")
+        analysis_type = st.selectbox("Choose Analysis Type:", [
+            "Overall Score Distribution",
+            "Correlation Heatmap",
+            "Pass vs Fail Ratio",
+            "Performance Comparison",
+            "Custom Column Analysis"
+        ])
+
+        # ================== DISTRIBUTION ==================
+        if analysis_type == "Overall Score Distribution":
             numeric_cols = df.select_dtypes(include='number').columns.tolist()
             if numeric_cols:
-                selected_col = st.selectbox("Select Column", numeric_cols)
-                fig = px.histogram(df, x=selected_col, nbins=20, title=f"Distribution of {selected_col}")
+                selected_col = st.selectbox("Select a column for distribution:", numeric_cols)
+                fig = px.histogram(df, x=selected_col, nbins=20,
+                                   color_discrete_sequence=["#3498db"],
+                                   title=f"Distribution of {selected_col}")
                 st.plotly_chart(fig, use_container_width=True)
-        with col2:
-            if "Final Result" in df.columns:
-                result_counts = df["Final Result"].value_counts()
-                st.markdown("### 🎯 Pass vs Fail")
-                st.plotly_chart(px.pie(names=result_counts.index, values=result_counts.values, title="Pass vs Fail"))
+            else:
+                st.warning("⚠️ No numeric columns found.")
+
+        # ================== CORRELATION HEATMAP ==================
+        elif analysis_type == "Correlation Heatmap":
+            numeric_df = df.select_dtypes(include='number')
+            if not numeric_df.empty:
+                st.markdown("### 🔷 Correlation Heatmap of Scores")
+                fig, ax = plt.subplots(figsize=(8, 5))
+                sns.heatmap(numeric_df.corr(), annot=True, cmap="coolwarm", fmt=".2f", linewidths=0.5)
+                st.pyplot(fig)
+            else:
+                st.warning("⚠️ No numeric data found for correlation analysis.")
+
+        # ================== PASS VS FAIL RATIO ==================
+        elif analysis_type == "Pass vs Fail Ratio":
+            if "Predicted Result" in df.columns:
+                st.markdown("### 🎯 Pass vs Fail Overview")
+                result_counts = df["Predicted Result"].value_counts()
+                fig = px.pie(names=result_counts.index, values=result_counts.values,
+                             color=result_counts.index,
+                             color_discrete_map={"Pass": "#2ecc71", "Fail": "#e74c3c"},
+                             title="Overall Pass/Fail Ratio")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ Please include the 'Predicted Result' column in your data.")
+
+        # ================== PERFORMANCE COMPARISON ==================
+        elif analysis_type == "Performance Comparison":
+            if all(col in df.columns for col in ['Assignment Score', 'Midterm Marks', 'Final Exam Marks']):
+                st.markdown("### 📊 Comparative Performance Overview")
+                melted_df = df.melt(value_vars=['Assignment Score', 'Midterm Marks', 'Final Exam Marks'],
+                                    var_name='Assessment Type', value_name='Score')
+                fig = px.box(melted_df, x="Assessment Type", y="Score", color="Assessment Type",
+                             title="Performance Distribution Across Assessments",
+                             color_discrete_sequence=["#3498db", "#9b59b6", "#e67e22"])
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("⚠️ Required columns missing: 'Assignment Score', 'Midterm Marks', 'Final Exam Marks'.")
+
+        # ================== CUSTOM COLUMN ANALYSIS ==================
+        elif analysis_type == "Custom Column Analysis":
+            st.markdown("### 🔧 Explore Relationships Between Any Two Columns")
+            all_cols = df.columns.tolist()
+            x_col = st.selectbox("Select X-axis column:", all_cols)
+            y_col = st.selectbox("Select Y-axis column:", all_cols, index=min(1, len(all_cols)-1))
+            color_col = st.selectbox("Color by (optional):", [None] + all_cols)
+            fig = px.scatter(df, x=x_col, y=y_col, color=color_col,
+                             title=f"Relationship between {x_col} and {y_col}",
+                             color_discrete_sequence=px.colors.qualitative.Vivid)
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("📁 Upload your **Predicted CSV** file to begin visual analysis.")
+
 
 # ==================== Advanced Insights ====================
 elif choice == "Advanced Insights":
