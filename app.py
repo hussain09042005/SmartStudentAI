@@ -108,99 +108,104 @@ if new_msgs_count > 0:
     st.sidebar.markdown(f"**🆕 New Messages: {new_msgs_count}**")
 
 
-# ==================== Dashboard ====================
-# ==================== Dashboard (Professional UI) ====================
+# ==================== DASHBOARD (Professional Version) ====================
 if choice == "Dashboard":
     st.markdown("""
-    <div style="background:linear-gradient(90deg,#2ecc71,#27ae60);
+    <div style="background:linear-gradient(90deg,#2980b9,#6dd5fa,#ffffff);
                 padding:1rem 2rem; border-radius:10px; text-align:center;
-                color:white; font-size:1.5rem; font-weight:bold; margin-bottom:25px;">
-        📊 Student Performance Prediction Dashboard
+                color:white; font-size:1.6rem; font-weight:bold; 
+                box-shadow:0 4px 15px rgba(0,0,0,0.15); margin-bottom:25px;">
+        🎓 SmartStudent AI - Predictive Dashboard
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("""
+    <p style="color:#555; font-size:1.1rem; text-align:center;">
+        Upload student performance data to predict academic outcomes and visualize insights dynamically.
+    </p>
+    """, unsafe_allow_html=True)
+
     col1, col2 = st.columns([0.7, 0.3])
-    uploaded_file = col1.file_uploader("📂 Upload Student CSV File", type="csv")
+    uploaded_file = col1.file_uploader("📂 Upload Student Dataset (CSV)", type="csv")
     use_sample = col2.button("🎓 Use Sample Data")
 
     if use_sample:
         df = pd.read_csv("test_student_data.csv")
+        st.success("✅ Sample data loaded successfully!")
     elif uploaded_file:
         df = pd.read_csv(uploaded_file)
+        st.success("✅ File uploaded successfully!")
     else:
         df = None
 
     if df is not None:
-        st.markdown("### 🧾 Dataset Preview")
-        st.dataframe(df.head(), use_container_width=True)
-
         required_columns = ['Assignment Score', 'Class Participation', 'Midterm Marks', 'Final Exam Marks']
         missing = [c for c in required_columns if c not in df.columns]
 
         if missing:
-            st.error(f"❌ Missing Columns: {', '.join(missing)}")
+            st.error(f"❌ Missing Required Columns: {', '.join(missing)}")
         else:
-            with st.spinner("🚀 Generating Predictions..."):
-                X = df[required_columns]
-                predictions = model.predict(X)
-                df["Predicted Result"] = predictions
+            try:
+                with st.spinner("🧠 Analyzing data and predicting results..."):
+                    progress_bar = st.progress(0)
+                    for pct in range(0, 101, 10):
+                        progress_bar.progress(pct)
+                        st.sleep(0.05)
 
-            # --- Calculate stats ---
-            total = len(df)
-            passed = sum(df["Predicted Result"] == "Pass")
-            failed = total - passed
-            pass_percent = (passed / total) * 100
-            avg_marks = df["Final Exam Marks"].mean()
+                    X = df[required_columns]
+                    predictions = model.predict(X)
+                    df["Predicted Result"] = predictions
 
-            # --- Summary metrics ---
-            st.markdown("<div class='metric-container'>", unsafe_allow_html=True)
-            st.markdown(f"""
-                <div class='metric-card' style='background:linear-gradient(45deg,#2980b9,#6dd5fa);'>
-                    <div class='metric-label'>Total Students</div>
-                    <div class='metric-value'>{total}</div>
+                    total = len(df)
+                    passed = sum(df["Predicted Result"] == "Pass")
+                    avg_marks = df["Final Exam Marks"].mean()
+                    pass_percent = (passed / total) * 100
+
+                # 🎯 Dashboard Metrics
+                st.markdown("""
+                <div style="display:flex; gap:1.5rem; margin-top:1.5rem;">
+                    <div style="flex:1; background-color:#3498db; color:white; padding:1.5rem; border-radius:15px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+                        <div style="font-size:1.2rem;">👥 Total Students</div>
+                        <div style="font-size:2rem; font-weight:bold;">{}</div>
+                    </div>
+                    <div style="flex:1; background-color:#2ecc71; color:white; padding:1.5rem; border-radius:15px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+                        <div style="font-size:1.2rem;">✅ Pass Percentage</div>
+                        <div style="font-size:2rem; font-weight:bold;">{:.2f}%</div>
+                    </div>
+                    <div style="flex:1; background-color:#f1c40f; color:white; padding:1.5rem; border-radius:15px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+                        <div style="font-size:1.2rem;">📊 Average Final Marks</div>
+                        <div style="font-size:2rem; font-weight:bold;">{:.2f}</div>
+                    </div>
                 </div>
-                <div class='metric-card' style='background:linear-gradient(45deg,#27ae60,#2ecc71);'>
-                    <div class='metric-label'>Pass Percentage</div>
-                    <div class='metric-value'>{pass_percent:.2f}%</div>
-                </div>
-                <div class='metric-card' style='background:linear-gradient(45deg,#8e44ad,#9b59b6);'>
-                    <div class='metric-label'>Avg Final Marks</div>
-                    <div class='metric-value'>{avg_marks:.2f}</div>
-                </div>
-                <div class='metric-card' style='background:linear-gradient(45deg,#e74c3c,#f39c12);'>
-                    <div class='metric-label'>At Risk (Fail)</div>
-                    <div class='metric-value'>{failed} Students</div>
-                </div>
-            """, unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+                """.format(total, pass_percent, avg_marks), unsafe_allow_html=True)
 
-            # --- Visualization section ---
-            st.markdown("### 📈 Prediction Insights")
-            col3, col4 = st.columns(2)
-            with col3:
-                result_counts = df["Predicted Result"].value_counts()
-                fig_pie = px.pie(names=result_counts.index, values=result_counts.values,
-                                 color=result_counts.index,
-                                 title="Pass vs Fail Distribution",
-                                 color_discrete_map={"Pass":"#27ae60","Fail":"#e74c3c"})
-                st.plotly_chart(fig_pie, use_container_width=True)
-            with col4:
-                fig_bar = px.bar(df, x="Predicted Result", y="Final Exam Marks",
-                                 color="Predicted Result", barmode="group",
-                                 color_discrete_map={"Pass":"#2ecc71","Fail":"#e74c3c"},
-                                 title="Final Marks by Result")
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.balloons()
+                st.success("🎉 Prediction Completed Successfully!")
 
-            # --- Download button ---
-            st.download_button("📥 Download Predicted CSV",
-                               df.to_csv(index=False).encode('utf-8'),
-                               "predicted_results.csv")
+                # 🎨 Predicted Table
+                st.markdown("### 🧾 Predicted Results")
+                st.dataframe(df, use_container_width=True)
 
-            # --- Extra Insight Box ---
-            st.success(f"✅ Prediction Complete — {pass_percent:.2f}% students passed, "
-                       f"{failed} students may need intervention.")
+                # 📥 Download Option
+                st.download_button(
+                    "📥 Download Predicted CSV",
+                    df.to_csv(index=False).encode('utf-8'),
+                    "predicted_results.csv",
+                    use_container_width=True
+                )
+
+                # 📈 Quick Visualization
+                st.markdown("### 📈 Pass vs Fail Overview")
+                if "Predicted Result" in df.columns:
+                    fig = px.pie(df, names="Predicted Result", title="Pass vs Fail Ratio",
+                                 color_discrete_sequence=px.colors.qualitative.Pastel)
+                    st.plotly_chart(fig, use_container_width=True)
+
+            except Exception as e:
+                st.error(f"⚠️ Error while predicting: {e}")
     else:
-        st.info("📥 Upload your CSV or click **🎓 Use Sample Data** to begin.")
+        st.info("📥 Upload a dataset or click 'Use Sample Data' to begin.")
+
 
 ## ==================== Visual Analysis (Professional Version) ====================
 elif choice == "Visual Analysis":
