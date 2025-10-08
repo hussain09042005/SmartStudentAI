@@ -10,6 +10,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 import csv
+import time
 import requests
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -149,8 +150,9 @@ if choice == "Dashboard":
                 with st.spinner("🧠 Analyzing data and predicting results..."):
                     progress_bar = st.progress(0)
                     for pct in range(0, 101, 10):
-                        progress_bar.progress(pct)
-                        st.sleep(0.05)
+                    progress_bar.progress(pct)
+                    time.sleep(0.05)
+
 
                     X = df[required_columns]
                     predictions = model.predict(X)
