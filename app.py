@@ -430,75 +430,91 @@ elif choice == "About + Contact":
         else:
             st.warning("⚠️ Please fill all fields.")
 
-# ------------------- Admin Panel -------------------
+# ==================== 🔐 PROFESSIONAL ADMIN PANEL ====================
 elif choice == "Admin Panel":
-    st.subheader("🔐 Admin Login")
+    st.markdown("""
+        <h2 style='text-align:center; color:#2c3e50;'>🛡️ Admin Control Panel</h2>
+        <hr style='border:1px solid #3498db; margin-bottom:15px;'>
+    """, unsafe_allow_html=True)
 
     if "admin_logged_in" not in st.session_state:
         st.session_state["admin_logged_in"] = False
 
-    # Admin login form
+    # ---------- Login Section ----------
     if not st.session_state["admin_logged_in"]:
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        login_btn = st.button("Login")
+        with st.container():
+            st.markdown("""
+                <div style='background-color:#f7f9fb; padding:30px; border-radius:12px;
+                            box-shadow:0 4px 10px rgba(0,0,0,0.1);'>
+                    <h4 style='color:#34495e;'>🔐 Secure Login</h4>
+                </div>
+            """, unsafe_allow_html=True)
 
-        if login_btn:
-            if username == "admin" and password == "hussain123":
-                st.session_state["admin_logged_in"] = True
-                st.success("✅ Welcome, Admin!")
-            else:
-                st.error("❌ Invalid credentials.")
+            username = st.text_input("👤 Username")
+            password = st.text_input("🔑 Password", type="password")
+            login_btn = st.button("Login")
 
+            if login_btn:
+                if username == "admin" and password == "hussain123":
+                    st.session_state["admin_logged_in"] = True
+                    st.success("✅ Welcome, Admin!")
+                else:
+                    st.error("❌ Invalid credentials. Please try again.")
+
+    # ---------- Admin Dashboard ----------
     if st.session_state["admin_logged_in"]:
-        st.markdown("### 🛡️ Admin Dashboard - Overview")
+        st.markdown("""
+            <div style="background:#ecf6ff; padding:1rem 1.5rem; border-radius:12px; margin-bottom:15px;">
+                <h4 style="color:#2c3e50; margin:0;">📊 Dashboard Overview</h4>
+            </div>
+        """, unsafe_allow_html=True)
 
-        # Load messages
         try:
             df_logs = pd.read_csv("contact_logs.csv", encoding='utf-8-sig')
         except:
             df_logs = pd.DataFrame(columns=["Name", "Email", "Message", "Reply", "Timestamp", "Seen"])
 
-        # Clean data
         df_logs['Timestamp'] = pd.to_datetime(df_logs.get('Timestamp'), errors='coerce')
         df_logs['Timestamp'] = df_logs['Timestamp'].fillna(datetime.datetime.now())
         df_logs['Seen'] = df_logs.get('Seen', 'No').fillna('No')
         df_logs['Reply'] = df_logs.get('Reply', '').fillna('')
         df_logs['Reply'] = df_logs['Reply'].apply(lambda x: '' if str(x).lower() == 'nan' else str(x))
 
-        # Metrics
-        def get_counts():
-            total_msgs = len(df_logs)
-            today_msgs = len(df_logs[df_logs["Timestamp"].dt.date == datetime.datetime.now().date()])
-            new_msgs_count = len(df_logs[df_logs["Seen"] == "No"])
-            return total_msgs, today_msgs, new_msgs_count
+        total_msgs = len(df_logs)
+        today_msgs = len(df_logs[df_logs["Timestamp"].dt.date == datetime.datetime.now().date()])
+        new_msgs_count = len(df_logs[df_logs["Seen"] == "No"])
 
-        total_msgs, today_msgs, new_msgs_count = get_counts()
+        # ---------- Metric Cards ----------
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+                <div style="background:#3498db; padding:20px; border-radius:10px; text-align:center; color:white;">
+                    <h5>Total Messages</h5>
+                    <h2>{total_msgs}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+                <div style="background:#2ecc71; padding:20px; border-radius:10px; text-align:center; color:white;">
+                    <h5>Today</h5>
+                    <h2>{today_msgs}</h2>
+                </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+                <div style="background:#e74c3c; padding:20px; border-radius:10px; text-align:center; color:white;">
+                    <h5>New Messages</h5>
+                    <h2>{new_msgs_count}</h2>
+                </div>
+            """, unsafe_allow_html=True)
 
-        # Display metrics
-        st.markdown(f"""
-        <div style="display:flex; gap:1.5rem; margin-bottom:1rem;">
-            <div style="flex:1; background-color:#3498db; color:white; padding:1.5rem; border-radius:16px; text-align:center;">
-                <div>Total Messages</div>
-                <div style="font-size:2rem; font-weight:bold;">{total_msgs}</div>
-            </div>
-            <div style="flex:1; background-color:#2ecc71; color:white; padding:1.5rem; border-radius:16px; text-align:center;">
-                <div>Today</div>
-                <div style="font-size:2rem; font-weight:bold;">{today_msgs}</div>
-            </div>
-            <div style="flex:1; background-color:#e74c3c; color:white; padding:1.5rem; border-radius:16px; text-align:center;">
-                <div>New Messages</div>
-                <div style="font-size:2rem; font-weight:bold;">{new_msgs_count}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        # Tabs
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs([f"📨 Messages ({new_msgs_count} new)", "📊 Logs", "📥 Downloads"])
+        # ---------- Tabs ----------
+        tabs = st.tabs([f"📨 Messages ({new_msgs_count} new)", "📊 Logs", "⬇️ Downloads"])
 
-        # ---------------- Messages Tab -----------------
-        with admin_tab1:
-            st.markdown("### 💌 Contact Messages")
+        # ----- Messages Tab -----
+        with tabs[0]:
             if df_logs.empty:
                 st.info("No messages yet.")
             else:
@@ -509,27 +525,13 @@ elif choice == "Admin Panel":
                     timestamp = row['Timestamp'].strftime("%Y-%m-%d %H:%M:%S")
                     reply_value = str(row.get("Reply", ""))
 
-                    # Track seen status
-                    if f"seen_{index}" not in st.session_state:
-                        st.session_state[f"seen_{index}"] = df_logs.at[index, 'Seen'] == 'Yes'
-
-                    # Unique key for expander
-                    expander_key = f"exp_{index}_{row['Timestamp'].strftime('%Y%m%d%H%M%S')}"
-
-                    with st.expander(f"👤 {name} - {timestamp}", expanded=False):
-                        st.markdown(f"**📧 Email:** {email}  \n**📝 Message:** {message}")
-
-                        # Mark as seen
-                        if not st.session_state[f"seen_{index}"]:
-                            df_logs.at[index, 'Seen'] = 'Yes'
-                            df_logs.to_csv("contact_logs.csv", index=False, encoding='utf-8-sig')
-                            st.session_state[f"seen_{index}"] = True
-                            total_msgs, today_msgs, new_msgs_count = get_counts()
-
-                        # Reply
+                    with st.expander(f"👤 {name} - {timestamp}"):
+                        st.markdown(f"""
+                            **📧 Email:** {email}  
+                            **📝 Message:** {message}
+                        """)
                         reply_text = st.text_area("✉️ Reply", key=f"reply_{index}", height=100, value=reply_value)
                         send_reply = st.button("Send Reply", key=f"send_{index}", use_container_width=True)
-
                         if send_reply and reply_text.strip():
                             try:
                                 msg = MIMEMultipart()
@@ -543,30 +545,28 @@ elif choice == "Admin Panel":
                                     server.login(st.secrets["email"], st.secrets["app_password"])
                                     server.sendmail(st.secrets["email"], email, msg.as_string())
 
-                                st.success(f"✅ Reply sent to {name}!")
                                 df_logs.at[index, "Reply"] = reply_text
+                                df_logs.at[index, "Seen"] = "Yes"
                                 df_logs.to_csv("contact_logs.csv", index=False, encoding='utf-8-sig')
-
-                                total_msgs, today_msgs, new_msgs_count = get_counts()
+                                st.success(f"✅ Reply sent to {name} successfully!")
                             except Exception as e:
                                 st.error(f"❌ Failed to send reply: {e}")
 
-        # ---------------- Logs Tab -----------------
-        with admin_tab2:
-            st.markdown("### 📊 Contact Logs")
+        # ----- Logs Tab -----
+        with tabs[1]:
             if df_logs.empty:
                 st.info("No logs available.")
             else:
                 st.dataframe(df_logs.sort_values(by="Timestamp", ascending=False), use_container_width=True)
 
-        # ---------------- Downloads Tab -----------------
-        with admin_tab3:
-            st.markdown("### ⬇️ Download Logs")
+        # ----- Downloads Tab -----
+        with tabs[2]:
             if not df_logs.empty:
                 with open("contact_logs.csv", "rb") as f:
-                    st.download_button("Download contact_logs.csv", f, file_name="contact_logs.csv")
+                    st.download_button("⬇️ Download contact_logs.csv", f, file_name="contact_logs.csv", use_container_width=True)
             else:
                 st.warning("⚠️ No data to download.")
+
 
 
 
