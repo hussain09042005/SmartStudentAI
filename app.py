@@ -150,8 +150,8 @@ if choice == "Dashboard":
                 with st.spinner("🧠 Analyzing data and predicting results..."):
                     progress_bar = st.progress(0)
                     for pct in range(0, 101, 10):
-                    progress_bar.progress(pct)
-                    time.sleep(0.05)
+                        progress_bar.progress(pct)
+                        time.sleep(0.05)
 
 
                     X = df[required_columns]
