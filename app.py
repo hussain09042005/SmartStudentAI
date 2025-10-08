@@ -306,7 +306,7 @@ elif choice == "Admin Panel":
                     # Unique key for expander
                     expander_key = f"exp_{index}_{row['Timestamp'].strftime('%Y%m%d%H%M%S')}"
 
-                    with st.expander(f"👤 {name} - {timestamp}", expanded=False, key=expander_key):
+                    with st.expander(f"👤 {name} - {timestamp}", expanded=False):
                         st.markdown(f"**📧 Email:** {email}  \n**📝 Message:** {message}")
 
                         # Mark as seen
