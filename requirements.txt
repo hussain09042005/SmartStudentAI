@@ -8,3 +8,6 @@ plotly
 streamlit
 streamlit-lottie
 requests
+bcrypt
+gspread
+google-auth
