@@ -9,12 +9,13 @@ import smtplib
 import os
 import csv
 import time
-
+import bcrypt
+import gspread
+from google.oauth2.service_account import Credentials
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
-
 
 # ==================== Streamlit Page Config ====================
 st.set_page_config(
@@ -23,9 +24,33 @@ st.set_page_config(
     page_icon="📊"
 )
 
-# ===================== AUTHENTICATION SYSTEM =====================
+# ==================== GOOGLE SHEETS FUNCTION ====================
+def save_to_google_sheets(name, email, message):
+    try:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
 
-# -------- Session Initialization --------
+        client = gspread.authorize(creds)
+        sheet = client.open("SmartStudentAI_Contact").sheet1
+
+        sheet.append_row([
+            name,
+            email,
+            message,
+            str(datetime.datetime.now())
+        ])
+
+    except Exception as e:
+        st.error(f"Google Sheets Error: {e}")
+
+# ================= SESSION INITIALIZATION =================
+
+if "remember_until" not in st.session_state:
+    st.session_state.remember_until = None
+
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -35,39 +60,67 @@ if "role" not in st.session_state:
 if "login_attempts" not in st.session_state:
     st.session_state.login_attempts = 0
 
-if "last_activity" not in st.session_state:
-    st.session_state.last_activity = time.time()
 
-if "remember_until" not in st.session_state:
-    st.session_state.remember_until = None
+# ================= CREATE USERS FILE IF NOT EXISTS =================
+if not os.path.exists("users.csv"):
+    df_init = pd.DataFrame(columns=[
+        "Username",
+        "Password",
+        "Role",
+        "Approved"
+    ])
+    df_init.to_csv("users.csv", index=False)
 
 
-# -------- Simple User Storage --------
+# ================= LOGIN FUNCTION =================
 def login_user(username, password):
-    users = {
-        "student": {"password": "stud123", "role": "Student"},
-        "faculty": {"password": "fac123", "role": "Faculty"},
-        "admin": {"password": "admin123", "role": "Admin"}
-    }
 
-    if username in users and users[username]["password"] == password:
-        return users[username]["role"]
+    if not os.path.exists("users.csv"):
+        return None
+
+    df_users = pd.read_csv("users.csv")
+
+    if df_users.empty:
+        return None
+
+    user_row = df_users[df_users["Username"] == username]
+
+    if user_row.empty:
+        return None
+
+    stored_hash = user_row.iloc[0]["Password"]
+
+    try:
+        if bcrypt.checkpw(
+            password.encode("utf-8"),
+            stored_hash.encode("utf-8")
+        ):
+
+            if user_row.iloc[0]["Approved"] == "No":
+                st.warning("⏳ Account pending admin approval.")
+                return None
+
+            return user_row.iloc[0]["Role"]
+
+    except:
+        return None
 
     return None
 
 
-# ==================== REMEMBER ME SYSTEM ====================
+
+# ================= REMEMBER SYSTEM =================
 
 current_time = time.time()
 
-# Auto-login if remember session valid
 if (
     st.session_state.remember_until is not None
     and current_time < st.session_state.remember_until
+    and st.session_state.role is not None
 ):
     st.session_state.logged_in = True
 
-# Expire remember session
+
 elif (
     st.session_state.remember_until is not None
     and current_time >= st.session_state.remember_until
@@ -76,48 +129,100 @@ elif (
     st.session_state.role = None
     st.session_state.remember_until = None
 
+# ================= AUTH MODE =================
 
-# ===================== LOGIN SCREEN =====================
+st.sidebar.title("Account")
+auth_mode = st.sidebar.radio("Choose Option", ["Login", "Register"])
 
-if not st.session_state.logged_in:
+# ================= REGISTRATION =================
 
-    st.title("🔐 SmartStudent AI Secure Login")
+if auth_mode == "Register":
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    remember_me = st.checkbox("Remember me for 20 minutes")
+    st.title("📝 Create Account")
 
-    if st.button("Login", use_container_width=True):
+    new_username = st.text_input("Username")
+    new_password = st.text_input("Password", type="password")
+    new_role = st.selectbox("Role", ["Student", "Faculty"])
 
-        role = login_user(username, password)
+    if st.button("Register"):
 
-        if role:
-            st.session_state.logged_in = True
-            st.session_state.role = role
-            st.session_state.login_attempts = 0
-            st.session_state.last_activity = time.time()
+        if new_username and new_password:
 
-            # 🔥 Remember for 20 minutes
-            if remember_me:
-                st.session_state.remember_until = time.time() + (20 * 60)
+            df_users = pd.read_csv("users.csv")
 
-            st.success(f"Welcome {role} ✅")
-            st.rerun()
+            if new_username in df_users["Username"].values:
+                st.error("Username already exists.")
+                st.stop()
+
+            hashed_password = bcrypt.hashpw(
+                new_password.encode("utf-8"),
+                bcrypt.gensalt()
+            ).decode("utf-8")
+
+            new_user = pd.DataFrame([{
+                "Username": new_username,
+                "Password": hashed_password,
+                "Role": new_role,
+                "Approved": "Yes" if new_role == "Student" else "No"
+            }])
+
+            df_users = pd.concat([df_users, new_user], ignore_index=True)
+            df_users.to_csv("users.csv", index=False)
+
+            st.success("Account created!")
+
+            if new_role == "Faculty":
+                st.info("Waiting for admin approval.")
 
         else:
-            st.session_state.login_attempts += 1
-            st.error("Invalid Credentials ❌")
-
-            if st.session_state.login_attempts >= 3:
-                st.warning("Too many failed attempts. Try again later.")
-                st.stop()
+            st.warning("Fill all fields.")
 
     st.stop()
 
+# ================= LOGIN =================
+
+if not st.session_state.logged_in:
+
+    if auth_mode == "Login":
+
+        st.title("🔐 SmartStudent AI Login")
+
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        remember = st.checkbox("Remember for 20 minutes")
+
+        if st.button("Login"):
+
+            # 🔒 Brute force protection
+            if st.session_state.login_attempts >= 3:
+                st.error("Too many failed attempts. Try again later.")
+                st.stop()
+
+            role = login_user(username, password)
+
+            if role:
+                st.session_state.logged_in = True
+                st.session_state.role = role
+                st.session_state.login_attempts = 0
+
+                if remember:
+                    st.session_state.remember_until = time.time() + (20 * 60)
+
+                st.success(f"Welcome {role}")
+                st.rerun()
+
+            else:
+                st.session_state.login_attempts += 1
+                st.error("Invalid credentials")
+
+        st.stop()
 
 # ==================== INACTIVITY TIMEOUT (10 MIN) ====================
 
 # Apply inactivity timeout ONLY if remember is NOT active
+if "last_activity" not in st.session_state:
+    st.session_state.last_activity = time.time()
+
 if st.session_state.remember_until is None:
 
     if current_time - st.session_state.last_activity > 600:
@@ -241,14 +346,18 @@ def send_email(name, sender_email, message):
 # ===================== SIDEBAR =====================
 
 # Safety check – role must exist
-if st.session_state.role is None:
-    st.warning("Session invalid. Please login again.")
+if st.session_state.logged_in and st.session_state.role is None:
     st.session_state.logged_in = False
+    st.warning("Session invalid. Please login again.")
     st.rerun()
 
-role = st.session_state.role
 
-st.sidebar.markdown(f"### 👤 Logged in as: {role}")
+role = st.session_state.get("role", None)
+
+
+if role:
+    st.sidebar.markdown(f"### 👤 Logged in as: {role}")
+
 
 if st.sidebar.button("🚪 Logout"):
     st.session_state.logged_in = False
@@ -291,7 +400,7 @@ else:
     # Extra safety
     st.error("Invalid role detected.")
     st.stop()
-
+    
 
 choice = st.sidebar.selectbox("Navigation", menu)
 
@@ -787,19 +896,33 @@ elif choice == "Retrain Model":
 
 # ==================== About + Contact ====================
 elif choice == "About + Contact":
+
     st.header("📬 Contact Us")
     st.markdown("Reach out to us for any queries or suggestions.")
+
     name = st.text_input("Name")
     email = st.text_input("Email")
     message = st.text_area("Message", height=120)
+
     if st.button("Send Message"):
+
         if name and email and message:
+
+            # Send Email First
             if send_email(name, email, message):
-                st.success("✅ Message sent successfully!")
+
+                # Save to Google Sheets ONLY if email success
+                save_to_google_sheets(name, email, message)
+
+                st.success("✅ Message sent successfully & saved to Google Sheets!")
+
             else:
                 st.error("❌ Failed to send message. Check email settings.")
+
         else:
             st.warning("⚠️ Please fill all fields.")
+
+
 
 # ==================== 🔐 PROFESSIONAL ADMIN PANEL ====================
 elif choice == "Admin Panel":
@@ -809,151 +932,95 @@ elif choice == "Admin Panel":
         <hr style='border:1px solid #3498db; margin-bottom:15px;'>
     """, unsafe_allow_html=True)
 
-    if "admin_logged_in" not in st.session_state:
-        st.session_state["admin_logged_in"] = False
+    if role != "Admin":
+        st.error("Access Denied. Admins only.")
+        st.stop()
 
-    # ---------- Login Section ----------
-    if not st.session_state["admin_logged_in"]:
+    # -------- USER APPROVAL --------
+    st.subheader("📝 Pending User Approvals")
 
-        username = st.text_input("👤 Username")
-        password = st.text_input("🔑 Password", type="password")
+    df_users = pd.read_csv("users.csv")
+    pending = df_users[df_users["Approved"] == "No"]
 
-        if st.button("Login"):
-            if username == "admin" and password == "hussain123":
-                st.session_state["admin_logged_in"] = True
-                st.success("✅ Welcome, Admin!")
-                st.rerun()
-            else:
-                st.error("❌ Invalid credentials.")
-
-    # ---------- Admin Dashboard ----------
+    if pending.empty:
+        st.success("No pending approvals.")
     else:
+        for index, row in pending.iterrows():
 
-        st.markdown("""
-            <div style="background:#ecf6ff; padding:1rem 1.5rem; border-radius:12px; margin-bottom:15px;">
-                <h4 style="color:#2c3e50; margin:0;">📊 Dashboard Overview</h4>
-            </div>
-        """, unsafe_allow_html=True)
+            col1, col2 = st.columns([3,1])
+            col1.write(f"👤 {row['Username']} ({row['Role']})")
 
-        try:
-            df_logs = pd.read_csv("contact_logs.csv", encoding="utf-8-sig")
-        except:
-            df_logs = pd.DataFrame(
-                columns=["Name", "Email", "Message", "Reply", "Timestamp", "Seen"]
+            if col2.button("Approve", key=f"approve_{index}"):
+                df_users.at[index, "Approved"] = "Yes"
+                df_users.to_csv("users.csv", index=False)
+                st.success(f"{row['Username']} approved!")
+                st.rerun()
+
+    st.markdown("---")
+
+    # -------- CONTACT LOGS --------
+    st.subheader("📨 Contact Message Management")
+
+    try:
+        df_logs = pd.read_csv("contact_logs.csv", encoding="utf-8-sig")
+    except:
+        df_logs = pd.DataFrame(
+            columns=["Name", "Email", "Message", "Reply", "Timestamp", "Seen"]
+        )
+
+    if df_logs.empty:
+        st.info("No messages yet.")
+        st.stop()
+
+    df_logs["Timestamp"] = pd.to_datetime(
+        df_logs["Timestamp"], errors="coerce"
+    )
+
+    for index, row in df_logs.iterrows():
+
+        with st.expander(f"📩 {row['Name']} - {row['Timestamp']}"):
+
+            st.write(f"**Email:** {row['Email']}")
+            st.write(f"**Message:** {row['Message']}")
+
+            reply_text = st.text_area(
+                "Reply",
+                key=f"reply_{index}",
+                value=row.get("Reply", "")
             )
 
-        # Safe handling
-        df_logs["Timestamp"] = pd.to_datetime(
-            df_logs.get("Timestamp"), errors="coerce"
-        ).fillna(datetime.datetime.now())
+            if st.button("Send Reply", key=f"send_{index}"):
 
-        df_logs["Seen"] = df_logs.get("Seen", "No").fillna("No")
+                if reply_text.strip():
 
-        if "Reply" not in df_logs.columns:
-            df_logs["Reply"] = ""
+                    msg = MIMEMultipart()
+                    msg["From"] = st.secrets["email"]
+                    msg["To"] = row["Email"]
+                    msg["Subject"] = "Reply from SmartStudent AI"
+                    msg.attach(MIMEText(reply_text, "plain"))
 
-        df_logs["Reply"] = df_logs["Reply"].astype(str)
-        df_logs["Reply"] = df_logs["Reply"].apply(
-            lambda x: "" if x.lower() in ["nan"] else x
-        )
-
-        # Metrics
-        total_msgs = len(df_logs)
-        today_msgs = len(
-            df_logs[df_logs["Timestamp"].dt.date == datetime.datetime.now().date()]
-        )
-        new_msgs_count = len(df_logs[df_logs["Seen"] == "No"])
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Messages", total_msgs)
-        col2.metric("Today", today_msgs)
-        col3.metric("New Messages", new_msgs_count)
-
-        st.markdown("---")
-
-        tabs = st.tabs([
-            f"📨 Messages ({new_msgs_count} new)",
-            "📊 Logs",
-            "⬇️ Downloads"
-        ])
-
-        # ================= Messages Tab =================
-        with tabs[0]:
-
-            if df_logs.empty:
-                st.info("No messages yet.")
-            else:
-                for index, row in df_logs.iterrows():
-
-                    name = row["Name"]
-                    email = row["Email"]
-                    message = row["Message"]
-                    timestamp = row["Timestamp"].strftime("%Y-%m-%d %H:%M:%S")
-                    reply_value = row["Reply"]
-
-                    with st.expander(f"👤 {name} - {timestamp}"):
-
-                        st.markdown(f"""
-                        **📧 Email:** {email}  
-                        **📝 Message:** {message}
-                        """)
-
-                        reply_text = st.text_area(
-                            "✉️ Reply",
-                            key=f"reply_{index}",
-                            value=reply_value,
-                            height=120
+                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                        server.starttls()
+                        server.login(
+                            st.secrets["email"],
+                            st.secrets["app_password"]
+                        )
+                        server.sendmail(
+                            st.secrets["email"],
+                            row["Email"],
+                            msg.as_string()
                         )
 
-                        if st.button("Send Reply", key=f"send_{index}"):
-
-                            if reply_text.strip():
-                                try:
-                                    msg = MIMEMultipart()
-                                    msg["From"] = st.secrets["email"]
-                                    msg["To"] = email
-                                    msg["Subject"] = "Reply from SmartStudent AI"
-                                    msg.attach(MIMEText(reply_text, "plain"))
-
-                                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                                        server.starttls()
-                                        server.login(
-                                            st.secrets["email"],
-                                            st.secrets["app_password"]
-                                        )
-                                        server.sendmail(
-                                            st.secrets["email"],
-                                            email,
-                                            msg.as_string()
-                                        )
-
-                                    df_logs.at[index, "Reply"] = reply_text
-                                    df_logs.at[index, "Seen"] = "Yes"
-                                    df_logs.to_csv(
-                                        "contact_logs.csv",
-                                        index=False,
-                                        encoding="utf-8-sig"
-                                    )
-
-                                    st.success("Reply sent successfully!")
-                                    st.rerun()
-
-                                except Exception as e:
-                                    st.error(f"Email error: {e}")
-
-        # ================= Logs Tab =================
-        with tabs[1]:
-            st.dataframe(df_logs.sort_values("Timestamp", ascending=False))
-
-        # ================= Download Tab =================
-        with tabs[2]:
-            if not df_logs.empty:
-                with open("contact_logs.csv", "rb") as f:
-                    st.download_button(
-                        "⬇ Download contact_logs.csv",
-                        f,
-                        file_name="contact_logs.csv"
+                    df_logs.at[index, "Reply"] = reply_text
+                    df_logs.to_csv(
+                        "contact_logs.csv",
+                        index=False,
+                        encoding="utf-8-sig"
                     )
+
+                    st.success("Reply sent successfully!")
+                    st.rerun()
+
 
 
 
