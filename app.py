@@ -45,8 +45,13 @@ def save_to_google_sheets(name, email, message):
             str(datetime.datetime.now())
         ])
 
+        return True
+
     except Exception as e:
         st.error(f"Google Sheets Error: {e}")
+        return False
+
+
 
 # ================= SESSION INITIALIZATION =================
 
@@ -895,8 +900,6 @@ elif choice == "Retrain Model":
                 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
                 st.pyplot(fig_cm)
 
-
-
 # ==================== About + Contact ====================
 elif choice == "About + Contact":
 
@@ -911,19 +914,31 @@ elif choice == "About + Contact":
 
         if name and email and message:
 
-            # Send Email First
-            if send_email(name, email, message):
+            with st.spinner("Sending message..."):
 
-                # Save to Google Sheets ONLY if email success
-                save_to_google_sheets(name, email, message)
+                # 1️⃣ Send Email
+                email_sent = send_email(name, email, message)
 
-                st.success("✅ Message sent successfully & saved to Google Sheets!")
+                # 2️⃣ Save to Google Sheets
+                sheet_saved = save_to_google_sheets(name, email, message)
 
-            else:
-                st.error("❌ Failed to send message. Check email settings.")
+                # ================= RESULT HANDLING =================
+
+                if email_sent and sheet_saved:
+                    st.success("✅ Message sent successfully & saved to Google Sheets!")
+
+                elif email_sent and not sheet_saved:
+                    st.warning("⚠ Message sent but failed to save to Google Sheets.")
+
+                elif not email_sent and sheet_saved:
+                    st.warning("⚠ Message saved to Google Sheets but email failed.")
+
+                else:
+                    st.error("❌ Failed to send message. Please try again.")
 
         else:
             st.warning("⚠️ Please fill all fields.")
+
 
 
 
