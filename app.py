@@ -36,19 +36,49 @@ def save_to_google_sheets(name, email, message):
         )
 
         client = gspread.authorize(creds)
-        sheet = client.open("SmartStudentAI_Contact").sheet1
+        sheet = client.open("SmartStudentAI_Users").worksheet("ContactLogs")
 
         sheet.append_row([
             name,
             email,
             message,
-            str(datetime.datetime.now())
-        ])
+            "",  # Reply (empty)
+            str(datetime.datetime.now()),
+            "No"  # Seen default
+        ], value_input_option="USER_ENTERED")
 
         return True
 
     except Exception as e:
-        st.error(f"Google Sheets Error: {e}")
+        print("Google Sheets Exception:", e)
+        return False
+
+def save_user_to_google_sheets(username, password_hash, role, approved):
+    try:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+        )
+
+        client = gspread.authorize(creds)
+
+        # Open Spreadsheet
+        sheet = client.open("SmartStudentAI_Users").worksheet("SmartStudentAI_Users")
+
+        sheet.append_row([
+            username,
+            password_hash,
+            role,
+            approved
+        ], value_input_option="USER_ENTERED")
+
+        return True
+
+    except Exception as e:
+        print("User Sheet Error:", e)
         return False
 
 
@@ -82,27 +112,32 @@ if not os.path.exists("users.csv"):
 
 # ================= LOGIN FUNCTION =================
 def login_user(username, password):
-
-    if not os.path.exists("users.csv"):
-        return None
-
-    df_users = pd.read_csv("users.csv")
-
-    if df_users.empty:
-        return None
-
-    user_row = df_users[df_users["Username"] == username]
-
-    if user_row.empty:
-        return None
-
-    stored_hash = user_row.iloc[0]["Password"]
-
     try:
-        if bcrypt.checkpw(
-            password.encode("utf-8"),
-            stored_hash.encode("utf-8")
-        ):
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+        )
+
+        client = gspread.authorize(creds)
+        sheet = client.open("SmartStudentAI_Users").worksheet("SmartStudentAI_Users")
+
+        data = sheet.get_all_records()
+        df_users = pd.DataFrame(data)
+
+        if df_users.empty:
+            return None
+
+        user_row = df_users[df_users["Username"] == username]
+
+        if user_row.empty:
+            return None
+
+        stored_hash = user_row.iloc[0]["Password"]
+
+        if bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
 
             if user_row.iloc[0]["Approved"] == "No":
                 st.warning("⏳ Account pending admin approval.")
@@ -110,11 +145,11 @@ def login_user(username, password):
 
             return user_row.iloc[0]["Role"]
 
-    except:
         return None
 
-    return None
-
+    except Exception as e:
+        print("Login Error:", e)
+        return None
 
 
 # ================= REMEMBER SYSTEM =================
@@ -156,36 +191,57 @@ if auth_mode == "Register":
 
         if new_username and new_password:
 
-            df_users = pd.read_csv("users.csv")
+            try:
+                # Connect to Google Sheets
+                creds = Credentials.from_service_account_info(
+                    st.secrets["gcp_service_account"],
+                    scopes=[
+                        "https://www.googleapis.com/auth/spreadsheets",
+                        "https://www.googleapis.com/auth/drive"
+                    ]
+                )
 
-            if new_username in df_users["Username"].values:
-                st.error("Username already exists.")
-                st.stop()
+                client = gspread.authorize(creds)
+                sheet = client.open("SmartStudentAI_Users").worksheet("SmartStudentAI_Users")
 
-            hashed_password = bcrypt.hashpw(
-                new_password.encode("utf-8"),
-                bcrypt.gensalt()
-            ).decode("utf-8")
+                # Get existing users
+                data = sheet.get_all_records()
+                df_users = pd.DataFrame(data)
 
-            new_user = pd.DataFrame([{
-                "Username": new_username,
-                "Password": hashed_password,
-                "Role": new_role,
-                "Approved": "Yes" if new_role == "Student" else "No"
-            }])
+                # Check if username exists
+                if not df_users.empty and new_username in df_users["Username"].values:
+                    st.error("Username already exists.")
+                    st.stop()
 
-            df_users = pd.concat([df_users, new_user], ignore_index=True)
-            df_users.to_csv("users.csv", index=False)
+                # Hash password
+                hashed_password = bcrypt.hashpw(
+                    new_password.encode("utf-8"),
+                    bcrypt.gensalt()
+                ).decode("utf-8")
 
-            st.success("Account created!")
+                approved_status = "Yes" if new_role == "Student" else "No"
 
-            if new_role == "Faculty":
-                st.info("Waiting for admin approval.")
+                # Save to Google Sheets
+                sheet.append_row([
+                    new_username,
+                    hashed_password,
+                    new_role,
+                    approved_status
+                ], value_input_option="USER_ENTERED")
+
+                st.success("Account created successfully!")
+
+                if new_role == "Faculty":
+                    st.info("Waiting for admin approval.")
+
+            except Exception as e:
+                st.error(f"Registration Error: {e}")
 
         else:
             st.warning("Fill all fields.")
 
     st.stop()
+
 
 # ================= LOGIN =================
 
@@ -361,6 +417,45 @@ if st.session_state.logged_in and st.session_state.role is None:
 
 
 role = st.session_state.get("role", None)
+# ================= ADMIN GLOBAL NOTIFICATION =================
+if role == "Admin":
+
+    try:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+        )
+
+        client = gspread.authorize(creds)
+        sheet = client.open("SmartStudentAI_Users").worksheet("SmartStudentAI_Users")
+
+        data = sheet.get_all_records()
+        df_users = pd.DataFrame(data)
+
+        pending_count = 0
+        if not df_users.empty:
+            pending_count = len(df_users[df_users["Approved"] == "No"])
+
+        if pending_count > 0:
+            st.markdown(f"""
+                <div style="
+                    background-color:#8B0000;
+                    padding:10px;
+                    border-radius:8px;
+                    color:white;
+                    text-align:center;
+                    font-weight:bold;
+                    margin-bottom:15px;">
+                    🔔 {pending_count} Pending User Approval(s) – Visit Admin Panel
+                </div>
+            """, unsafe_allow_html=True)
+
+    except:
+        pass
+
 
 
 if role:
@@ -916,28 +1011,25 @@ elif choice == "About + Contact":
 
             with st.spinner("Sending message..."):
 
-                # 1️⃣ Send Email
                 email_sent = send_email(name, email, message)
-
-                # 2️⃣ Save to Google Sheets
                 sheet_saved = save_to_google_sheets(name, email, message)
 
-                # ================= RESULT HANDLING =================
-
                 if email_sent and sheet_saved:
-                    st.success("✅ Message sent successfully & saved to Google Sheets!")
+                    st.success("✅ Message sent & saved successfully!")
 
-                elif email_sent and not sheet_saved:
-                    st.warning("⚠ Message sent but failed to save to Google Sheets.")
+                elif email_sent:
+                    st.warning("⚠ Message sent, but Google Sheets logging failed.")
 
-                elif not email_sent and sheet_saved:
-                    st.warning("⚠ Message saved to Google Sheets but email failed.")
+                elif sheet_saved:
+                    st.warning("⚠ Saved to Google Sheets, but email failed.")
 
                 else:
-                    st.error("❌ Failed to send message. Please try again.")
+                    st.error("❌ Failed to process request.")
 
         else:
-            st.warning("⚠️ Please fill all fields.")
+            st.warning("⚠ Please fill all fields.")
+
+
 
 
 
@@ -945,36 +1037,78 @@ elif choice == "About + Contact":
 # ==================== 🔐 PROFESSIONAL ADMIN PANEL ====================
 elif choice == "Admin Panel":
 
-    st.markdown("""
-        <h2 style='text-align:center; color:#2c3e50;'>🛡️ Admin Control Panel</h2>
-        <hr style='border:1px solid #3498db; margin-bottom:15px;'>
-    """, unsafe_allow_html=True)
-
     if role != "Admin":
         st.error("Access Denied. Admins only.")
         st.stop()
 
-    # -------- USER APPROVAL --------
+    st.markdown("## 🛡️ Admin Control Panel")
+    st.markdown("---")
+
+    # -------- USER APPROVAL SECTION --------
     st.subheader("📝 Pending User Approvals")
 
-    df_users = pd.read_csv("users.csv")
-    pending = df_users[df_users["Approved"] == "No"]
+    try:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+        )
 
-    if pending.empty:
-        st.success("No pending approvals.")
-    else:
-        for index, row in pending.iterrows():
+        client = gspread.authorize(creds)
+        sheet = client.open("SmartStudentAI_Users").worksheet("SmartStudentAI_Users")
 
-            col1, col2 = st.columns([3,1])
-            col1.write(f"👤 {row['Username']} ({row['Role']})")
+        data = sheet.get_all_records()
+        df_users = pd.DataFrame(data)
 
-            if col2.button("Approve", key=f"approve_{index}"):
-                df_users.at[index, "Approved"] = "Yes"
-                df_users.to_csv("users.csv", index=False)
-                st.success(f"{row['Username']} approved!")
-                st.rerun()
+        if df_users.empty:
+            st.info("No users found.")
+        else:
+            pending_users = df_users[df_users["Approved"] == "No"]
 
-    st.markdown("---")
+            if pending_users.empty:
+                st.success("No pending approvals.")
+            else:
+                for index, row in pending_users.iterrows():
+
+                    col1, col2, col3 = st.columns([3, 1, 1])
+
+                    col1.write(f"👤 {row['Username']} ({row['Role']})")
+
+                    # APPROVE BUTTON
+                    if col2.button("✅ Approve", key=f"approve_{index}"):
+
+                        sheet_row_number = (
+                            df_users.index[
+                                df_users["Username"] == row["Username"]
+                            ][0] + 2
+                        )
+
+                        # Column D = Approved column (4th column)
+                        sheet.update_cell(sheet_row_number, 4, "Yes")
+
+                        st.success(f"{row['Username']} approved successfully!")
+                        st.rerun()
+
+                    # REJECT BUTTON
+                    if col3.button("❌ Reject", key=f"reject_{index}"):
+
+                        sheet_row_number = (
+                            df_users.index[
+                                df_users["Username"] == row["Username"]
+                            ][0] + 2
+                        )
+
+                        sheet.delete_rows(sheet_row_number)
+
+                        st.warning(f"{row['Username']} rejected and removed.")
+                        st.rerun()
+
+    except Exception as e:
+        st.error(f"Admin Approval Error: {e}")
+
+
 
     # -------- CONTACT LOGS --------
     st.subheader("📨 Contact Message Management")
