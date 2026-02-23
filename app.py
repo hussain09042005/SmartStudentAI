@@ -82,6 +82,36 @@ def save_user_to_google_sheets(username, password_hash, role, approved):
         return False
 
 
+if st.button("Create Default Admin (Run Once)"):
+
+    import bcrypt
+
+    password_hash = bcrypt.hashpw(
+        "admin123".encode("utf-8"),
+        bcrypt.gensalt()
+    ).decode("utf-8")
+
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+    )
+
+    client = gspread.authorize(creds)
+    sheet = client.open("SmartStudentAI_Users").worksheet("SmartStudentAI_Users")
+
+    sheet.append_row([
+        "admin",
+        password_hash,
+        "Admin",
+        "Yes"
+    ])
+
+    st.success("Admin created successfully!")
+
+
 
 # ================= SESSION INITIALIZATION =================
 
