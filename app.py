@@ -700,9 +700,9 @@ elif choice == "Manual Prediction":
     else:
         st.error("High Academic Instability")
 
-    st.markdown("---")
+    st.markdown("---")  
 
-    # ================= PREDICTION =================
+        # ================= PREDICTION =================
     if st.button("🚀 Generate AI Prediction", use_container_width=True):
 
         input_df = pd.DataFrame([{
@@ -712,11 +712,8 @@ elif choice == "Manual Prediction":
             "Final Exam Marks": final_exam
         }])
 
-        prediction = model.predict(input_df)[0]
-
         # ---------- Feature Importance ----------
         if hasattr(model, "feature_importances_"):
-
             st.subheader("📊 Model Feature Importance")
 
             importance_df = pd.DataFrame({
@@ -734,15 +731,25 @@ elif choice == "Manual Prediction":
 
             st.plotly_chart(fig_imp, use_container_width=True)
 
+        # ---------- Prediction ----------
+        prediction = model.predict(input_df)[0]
+
         # ---------- Probability ----------
         if hasattr(model, "predict_proba"):
             prob = model.predict_proba(input_df).max() * 100
         else:
             prob = 85
 
+        # ---------- Model Error ----------
+        model_error = 100 - prob
+
+        st.metric("⚠ Model Error", f"{model_error:.2f}%")
+        st.warning("⚠ High confidence does not guarantee correct prediction.")
+
+        # ---------- Output ----------
         colA, colB = st.columns(2)
         colA.metric("🎯 Predicted Outcome", prediction)
-        colB.metric("🔎 Confidence Score", f"{prob:.2f}%")
+        colB.metric("🔎 Model Confidence", f"{prob:.2f}%")
 
         # ---------- Confidence Indicator ----------
         st.markdown("### 🤖 AI Confidence Level")
@@ -755,10 +762,9 @@ elif choice == "Manual Prediction":
         else:
             st.error("Low AI Confidence")
 
-        # ---------- Projection Engine ----------
+        # ---------- Projection ----------
         projected_next_term = min(100, avg_score + (avg_score * 0.05))
-        st.metric("📈 Projected Next Term Score",
-                  f"{projected_next_term:.2f}%")
+        st.metric("📈 Projected Next Term Score", f"{projected_next_term:.2f}%")
 
         # ---------- Donut Chart ----------
         fig = px.pie(
@@ -767,41 +773,30 @@ elif choice == "Manual Prediction":
             hole=0.7,
             title="Academic Strength Composition"
         )
-
         st.plotly_chart(fig, use_container_width=True)
 
         # ---------- Recommendations ----------
         st.markdown("## 🧠 Strategic Academic Recommendations")
 
         if risk_level == "Low Risk":
-            recommendation = """
-• Maintain current academic rhythm  
-• Introduce advanced practice materials  
-• Prepare for competitive examinations  
-"""
+            recommendation = "Maintain current performance."
         elif risk_level == "Moderate Risk":
-            recommendation = """
-• Increase revision frequency  
-• Focus on weak assessment components  
-• Schedule weekly performance review  
-"""
+            recommendation = "Improve weak areas."
         else:
-            recommendation = """
-• Immediate academic mentoring required  
-• Daily supervised study schedule  
-• Faculty intervention recommended  
-"""
+            recommendation = "Immediate attention required."
 
         st.info(recommendation)
 
-        # ---------- Final Result Message ----------
+        # ---------- Final Result ----------
         if prediction == "Pass":
-            st.success("🎉 AI Model predicts PASS with strong probability.")
+            st.success("🎉 AI Model predicts PASS.")
         else:
-            st.error("⚠ AI Model predicts FAIL — Intervention Recommended.")
+            st.error("⚠ AI Model predicts FAIL.")
 
-## ==================== Visual Analysis (Professional Version) ====================
+
+# ==================== Visual Analysis (Professional Version) ====================
 elif choice == "Visual Analysis":
+
     st.markdown("""
     <div style="background:linear-gradient(90deg,#9b59b6,#8e44ad);
                 padding:1rem 2rem; border-radius:10px; text-align:center;
